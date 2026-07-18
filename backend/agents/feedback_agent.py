@@ -161,6 +161,7 @@ def _generate_mock_feedback_report(
 def generate_feedback_report(
     plan: LearningPlan,
     progress_report: ProgressReport,
+    agent: Agent | None = None,
 ) -> FeedbackReport:
     """Generate personalized feedback from a plan and progress report."""
 
@@ -168,8 +169,8 @@ def generate_feedback_report(
     if get_settings().mock_mode:
         return _generate_mock_feedback_report(plan, progress_report)
 
-    agent = create_feedback_agent()
-    result = agent.kickoff(
+    feedback_agent = agent or create_feedback_agent()
+    result = feedback_agent.kickoff(
         FEEDBACK_PROMPT.format(
             learning_plan=plan.model_dump_json(indent=2),
             progress_report=progress_report.model_dump_json(indent=2),
