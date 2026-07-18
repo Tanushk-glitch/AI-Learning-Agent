@@ -25,7 +25,8 @@ load_dotenv(dotenv_path=ENV_FILE)
 class Settings:
     """Runtime settings shared across the backend application."""
 
-    gemini_api_key: str
+    gemini_api_key: str | None
+    mock_mode: bool = False
     database_url: str | None = None
     redis_url: str | None = None
     youtube_api_key: str | None = None
@@ -46,12 +47,46 @@ def _required_env(name: str) -> str:
     return value
 
 
+def _optional_env(name: str) -> str | None:
+    """Return an optional environment variable with blank values normalized."""
+
+    value = os.getenv(name)
+    if value is not None:
+        value = value.strip()
+    return value or None
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    """Parse a boolean environment variable."""
+
+    value = os.getenv(name)
+    if value is None:
+        return default
+
+    normalized_value = value.strip().lower()
+    if normalized_value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized_value in {"0", "false", "no", "n", "off"}:
+        return False
+
+    raise RuntimeError(
+        f"{name} must be a boolean value such as true or false. "
+        f"Update {ENV_FILE} or your environment."
+    )
+
+
 @lru_cache
 def get_settings() -> Settings:
     """Create and cache application settings for reuse across modules."""
 
+    mock_mode = _env_bool("MOCK_MODE", default=False)
     return Settings(
-        gemini_api_key=_required_env("GEMINI_API_KEY"),
+        gemini_api_key=(
+            _optional_env("GEMINI_API_KEY")
+            if mock_mode
+            else _required_env("GEMINI_API_KEY")
+        ),
+        mock_mode=mock_mode,
         database_url=os.getenv("DATABASE_URL"),
         redis_url=os.getenv("REDIS_URL"),
         youtube_api_key=os.getenv("YOUTUBE_API_KEY"),
