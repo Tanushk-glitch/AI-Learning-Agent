@@ -1,4 +1,5 @@
-# AI-Learning Agent 
+# AI-Learning Agent
+
 
 AI-Learning-Agent is a production-oriented foundation for an AI-powered personal learning assistant. This repository currently contains the development environment scaffold, Gemini configuration, CrewAI-backed Gemini smoke tests, and a minimal FastAPI backend.
 
