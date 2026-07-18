@@ -202,15 +202,18 @@ def _generate_mock_learning_plan(intent: LearnerIntent) -> LearningPlan:
     )
 
 
-def generate_learning_plan(intent: LearnerIntent) -> LearningPlan:
+def generate_learning_plan(
+    intent: LearnerIntent,
+    agent: Agent | None = None,
+) -> LearningPlan:
     """Generate a structured roadmap from a complete LearnerIntent object."""
 
     _validate_complete_intent(intent)
     if get_settings().mock_mode:
         return _generate_mock_learning_plan(intent)
 
-    agent = create_planner_agent()
-    result = agent.kickoff(
+    planner_agent = agent or create_planner_agent()
+    result = planner_agent.kickoff(
         PLANNER_PROMPT.format(
             learner_intent=intent.model_dump_json(indent=2),
         ),

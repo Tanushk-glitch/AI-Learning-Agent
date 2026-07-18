@@ -243,6 +243,7 @@ def generate_nudge_report(
     plan: LearningPlan,
     progress_report: ProgressReport,
     feedback_report: FeedbackReport,
+    agent: Agent | None = None,
 ) -> NudgeReport:
     """Generate a nudge decision from plan, progress, and feedback data."""
 
@@ -250,8 +251,8 @@ def generate_nudge_report(
     if get_settings().mock_mode:
         return _generate_mock_nudge_report(plan, progress_report, feedback_report)
 
-    agent = create_nudge_agent()
-    result = agent.kickoff(
+    nudge_agent = agent or create_nudge_agent()
+    result = nudge_agent.kickoff(
         NUDGE_PROMPT.format(
             learning_plan=plan.model_dump_json(indent=2),
             progress_report=progress_report.model_dump_json(indent=2),
