@@ -10,12 +10,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
 from google import genai
+from google.genai import types
+
+from backend.utils.console import configure_utf8_output
+
+
+configure_utf8_output(sys.stdout, sys.stderr)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -27,7 +28,7 @@ from backend.core.config import get_settings
 GEMINI_MODEL = "gemini-flash-latest"
 
 
-def main() -> None:
+def main() -> int:
     """Send a minimal Gemini request and report the result."""
 
     try:
@@ -35,24 +36,40 @@ def main() -> None:
     except RuntimeError as exc:
         print("Gemini configuration is incomplete.")
         print(f"Details: {exc}")
-        return
+        return 1
 
     client = genai.Client(api_key=settings.gemini_api_key)
 
     try:
         response = client.models.generate_content(
             model=GEMINI_MODEL,
-            contents="Confirm the Gemini API connection for AI-Learning-Agent.",
+            contents=(
+                "Reply with exactly this sentence and nothing else: "
+                "AI-Learning-Agent Gemini connection verified."
+            ),
+            config=types.GenerateContentConfig(
+                temperature=0,
+                max_output_tokens=128,
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            ),
         )
     except Exception as exc:
         print("Gemini API connection test failed.")
         print("Check GEMINI_API_KEY, network connectivity, and Gemini API access.")
         print(f"Details: {exc}")
-        return
+        return 1
+
+    response_text = (response.text or "").strip()
+    if not response_text:
+        print("Gemini API connection test failed.")
+        print("The API returned a successful response without text content.")
+        return 1
 
     print("Gemini connection successful.")
-    print(f"Model response: {response.text}")
+    print(f"Model: {GEMINI_MODEL}")
+    print(f"Model response: {response_text}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

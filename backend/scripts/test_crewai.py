@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import sys
 
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+from backend.utils.console import configure_utf8_output
+
+
+configure_utf8_output(sys.stdout, sys.stderr)
 
 from backend.agents.base_agent import create_base_agent
 from backend.core.llm import GEMINI_FLASH_MODEL, get_gemini_llm

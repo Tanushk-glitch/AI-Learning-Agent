@@ -1,8 +1,8 @@
 # AI-Learning-Agent
 
-AI-Learning-Agent is a production-oriented foundation for an AI-powered personal learning assistant. This repository currently contains the development environment scaffold, Gemini configuration, and minimal smoke tests for direct Gemini and CrewAI-backed Gemini calls.
+AI-Learning-Agent is a production-oriented foundation for an AI-powered personal learning assistant. This repository currently contains the development environment scaffold, Gemini configuration, CrewAI-backed Gemini smoke tests, and a minimal FastAPI backend.
 
-No FastAPI routes, frontend code, database models, authentication, memory, orchestration, or business workflows are implemented at this stage.
+No frontend code, database models, authentication, memory, orchestration, or business workflows are implemented at this stage.
 
 ## Project Overview
 
@@ -26,6 +26,11 @@ AI-Learning-Agent/
 |   |-- agents/
 |   |   `-- base_agent.py
 |   |-- api/
+|   |   |-- router.py
+|   |   `-- routes/
+|   |       |-- chat.py
+|   |       |-- health.py
+|   |       `-- root.py
 |   |-- core/
 |   |   |-- config.py
 |   |   `-- llm.py
@@ -33,11 +38,16 @@ AI-Learning-Agent/
 |   |-- memory/
 |   |-- models/
 |   |-- schemas/
+|   |   |-- chat.py
+|   |   |-- common.py
+|   |   `-- health.py
 |   |-- scripts/
 |   |   |-- test_crewai.py
 |   |   `-- test_gemini.py
 |   |-- services/
-|   `-- utils/
+|   |   `-- chat_service.py
+|   |-- utils/
+|   `-- main.py
 |-- docs/
 |-- frontend/
 |-- scripts/
@@ -85,6 +95,8 @@ Copy-Item .env.example .env
 
 Fill in the required API keys and service URLs in `.env`. Never commit `.env`.
 
+Set `MOCK_MODE=true` to use local mock Planner output without consuming Gemini API quota.
+
 Create a virtual environment:
 
 ```powershell
@@ -122,6 +134,28 @@ Run the CrewAI Gemini smoke test:
 python -m backend.scripts.test_crewai
 ```
 
+Run the Intent Agent smoke test:
+
+```powershell
+python -m backend.scripts.test_intent_agent
+```
+
+Run the Planner Agent smoke test:
+
+```powershell
+python -m backend.scripts.test_planner_agent
+```
+
+When `MOCK_MODE=true`, the Planner Agent test runs without calling Gemini.
+
+Start the FastAPI backend:
+
+```powershell
+uvicorn backend.main:app --reload
+```
+
+Open Swagger UI at `http://127.0.0.1:8000/docs`.
+
 ## Installation Instructions
 
 Follow the Project Setup section above for local development.
@@ -136,12 +170,26 @@ Install dependencies with `pip install -r requirements.txt` after activating the
 
 ## Running the Project
 
-There is no application server to run yet because API routes and business logic are intentionally out of scope for this milestone.
-
-When the FastAPI application is added later, it will typically run with:
+Start the FastAPI backend:
 
 ```powershell
 uvicorn backend.main:app --reload
+```
+
+Available endpoints:
+
+- `GET /` returns a welcome message.
+- `GET /health` returns service health.
+- `POST /chat` sends a temporary prompt to the CrewAI Gemini integration.
+- `GET /docs` opens Swagger UI.
+
+Example temporary chat request:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/chat `
+  -ContentType "application/json" `
+  -Body '{"prompt":"Explain what Artificial Intelligence is in two sentences."}'
 ```
 
 Validate Gemini connectivity after adding `GEMINI_API_KEY` to `.env`:
@@ -158,7 +206,7 @@ python -m backend.scripts.test_crewai
 
 ## Future Roadmap
 
-- Add FastAPI application bootstrap.
+- Expand FastAPI endpoints as product requirements are defined.
 - Add CrewAI agents and task orchestration.
 - Add persistent memory and retrieval capabilities.
 - Add PostgreSQL database models and migrations.
@@ -206,6 +254,18 @@ Confirm CrewAI Gemini connectivity:
 
 ```powershell
 python -m backend.scripts.test_crewai
+```
+
+Confirm Intent Agent structured extraction:
+
+```powershell
+python -m backend.scripts.test_intent_agent
+```
+
+Confirm Planner Agent roadmap generation:
+
+```powershell
+python -m backend.scripts.test_planner_agent
 ```
 
 Confirm project structure:
