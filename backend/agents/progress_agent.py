@@ -200,6 +200,7 @@ def _generate_mock_progress_report(
 def generate_progress_report(
     plan: LearningPlan,
     progress: LearnerProgress,
+    agent: Agent | None = None,
 ) -> ProgressReport:
     """Generate a structured progress report from plan and progress data."""
 
@@ -207,8 +208,8 @@ def generate_progress_report(
     if get_settings().mock_mode:
         return _generate_mock_progress_report(plan, progress)
 
-    agent = create_progress_agent()
-    result = agent.kickoff(
+    progress_agent = agent or create_progress_agent()
+    result = progress_agent.kickoff(
         PROGRESS_PROMPT.format(
             learning_plan=plan.model_dump_json(indent=2),
             current_progress=progress.model_dump_json(indent=2),

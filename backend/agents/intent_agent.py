@@ -9,6 +9,7 @@ from __future__ import annotations
 from crewai import Agent
 
 from backend.agents.base_agent import create_base_agent
+from backend.core.config import get_settings
 from backend.schemas.intent import LearnerIntent
 
 
@@ -56,14 +57,58 @@ def create_intent_agent() -> Agent:
     )
 
 
-def analyze_learner_intent(user_request: str) -> LearnerIntent:
+def _generate_mock_learner_intent(user_request: str) -> LearnerIntent:
+    """Return deterministic learner intent without calling Gemini."""
+
+    normalized_request = user_request.lower()
+    if "i want to learn ai" in normalized_request:
+        return LearnerIntent(
+            learning_goal="Learn AI",
+            subject="AI",
+            current_skill_level=None,
+            available_time=None,
+            target_deadline=None,
+            preferred_learning_style=None,
+            is_complete=False,
+            missing_information=[
+                "current_skill_level",
+                "available_time",
+                "target_deadline",
+            ],
+            follow_up_questions=[
+                "What is your current skill level with AI or related topics?",
+                "How much time can you study each day or week?",
+                "Do you have a target deadline for learning AI?",
+            ],
+        )
+
+    return LearnerIntent(
+        learning_goal="Learn Python from scratch",
+        subject="Python",
+        current_skill_level="Beginner",
+        available_time="2 hours daily",
+        target_deadline="3 months",
+        preferred_learning_style=None,
+        is_complete=True,
+        missing_information=[],
+        follow_up_questions=[],
+    )
+
+
+def analyze_learner_intent(
+    user_request: str,
+    agent: Agent | None = None,
+) -> LearnerIntent:
     """Analyze a learner request and return structured intent data."""
 
     if not user_request.strip():
         raise ValueError("Learner request cannot be empty.")
 
-    agent = create_intent_agent()
-    result = agent.kickoff(
+    if get_settings().mock_mode:
+        return _generate_mock_learner_intent(user_request)
+
+    intent_agent = agent or create_intent_agent()
+    result = intent_agent.kickoff(
         INTENT_EXTRACTION_PROMPT.format(user_request=user_request),
         response_format=LearnerIntent,
     )
