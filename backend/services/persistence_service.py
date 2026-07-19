@@ -133,6 +133,12 @@ class PersistenceService:
         logger.info("Retrieving progress for user_id=%s topic=%s.", user_id, topic)
         return crud.get_progress(user_id=user_id, topic=topic)
 
+    def list_progress(self, user_id: int) -> Sequence[Progress]:
+        """Return all progress records for a user."""
+
+        logger.info("Retrieving progress records for user_id=%s.", user_id)
+        return crud.list_progress(user_id)
+
     def save_feedback(
         self,
         *,
