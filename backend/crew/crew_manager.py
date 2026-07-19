@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from backend.agents.feedback_agent import FeedbackValidationError
 from backend.agents.nudge_agent import NudgeValidationError
@@ -16,6 +18,10 @@ from backend.schemas.learning_session import LearningSessionResponse
 from backend.schemas.nudge import NudgeReport
 from backend.schemas.planner import LearningPlan
 from backend.schemas.progress import LearnerProgress, ProgressReport
+
+
+if TYPE_CHECKING:
+    from backend.services.persistence_service import PersistenceService
 
 
 logger = logging.getLogger(__name__)
@@ -37,12 +43,21 @@ class WorkflowState:
 class CrewManager:
     """Coordinate sequential execution of the learning agents."""
 
-    def __init__(self, learning_crew: LearningCrew | None = None) -> None:
+    def __init__(
+        self,
+        learning_crew: LearningCrew | None = None,
+        persistence_service: "PersistenceService | None" = None,
+    ) -> None:
         """Initialize the manager with a reusable LearningCrew."""
 
         self.learning_crew = learning_crew or LearningCrew()
+        self.persistence_service = persistence_service
 
-    def run_learning_workflow(self, user_request: str) -> LearningSessionResponse:
+    def run_learning_workflow(
+        self,
+        user_request: str,
+        user_id: int | None = None,
+    ) -> LearningSessionResponse:
         """Run the complete learning workflow for one user request."""
 
         state = WorkflowState()
@@ -73,10 +88,15 @@ class CrewManager:
                     error_message="Learner intent is incomplete.",
                 )
 
+            self._persist_intent(user_id, state)
             self._run_planner_stage(state)
+            self._persist_learning_plan(user_id, state)
             self._run_progress_stage(state)
+            self._persist_progress(user_id, state)
             self._run_feedback_stage(state)
+            self._persist_feedback(user_id, state)
             self._run_nudge_stage(state)
+            self._persist_nudge(user_id, state)
         except (
             PlannerValidationError,
             ProgressValidationError,
@@ -189,6 +209,109 @@ class CrewManager:
             completion_percentage=0,
             recent_activity="Learning session started from a new user request.",
         )
+
+    def _persist_intent(self, user_id: int | None, state: WorkflowState) -> None:
+        """Persist learner intent after a successful complete Intent Agent run."""
+
+        if (
+            user_id is None
+            or self.persistence_service is None
+            or state.learner_intent is None
+        ):
+            return
+
+        self._safe_persist(
+            "learner intent",
+            lambda: self.persistence_service.save_intent(
+                user_id=user_id,
+                intent=state.learner_intent,
+            ),
+        )
+
+    def _persist_learning_plan(
+        self,
+        user_id: int | None,
+        state: WorkflowState,
+    ) -> None:
+        """Persist a learning plan after a successful Planner Agent run."""
+
+        if (
+            user_id is None
+            or self.persistence_service is None
+            or state.learning_plan is None
+        ):
+            return
+
+        self._safe_persist(
+            "learning plan",
+            lambda: self.persistence_service.save_learning_plan(
+                user_id=user_id,
+                plan=state.learning_plan,
+            ),
+        )
+
+    def _persist_progress(self, user_id: int | None, state: WorkflowState) -> None:
+        """Persist progress after a successful Progress Agent run."""
+
+        if (
+            user_id is None
+            or self.persistence_service is None
+            or state.progress_report is None
+        ):
+            return
+
+        self._safe_persist(
+            "progress",
+            lambda: self.persistence_service.update_progress(
+                user_id=user_id,
+                progress_report=state.progress_report,
+            ),
+        )
+
+    def _persist_feedback(self, user_id: int | None, state: WorkflowState) -> None:
+        """Persist feedback after a successful Feedback Agent run."""
+
+        if (
+            user_id is None
+            or self.persistence_service is None
+            or state.feedback_report is None
+        ):
+            return
+
+        self._safe_persist(
+            "feedback",
+            lambda: self.persistence_service.save_feedback(
+                user_id=user_id,
+                feedback_report=state.feedback_report,
+            ),
+        )
+
+    def _persist_nudge(self, user_id: int | None, state: WorkflowState) -> None:
+        """Persist nudge history after a successful Nudge Agent run."""
+
+        if (
+            user_id is None
+            or self.persistence_service is None
+            or state.nudge_report is None
+        ):
+            return
+
+        self._safe_persist(
+            "nudge",
+            lambda: self.persistence_service.save_nudge(
+                user_id=user_id,
+                nudge_report=state.nudge_report,
+            ),
+        )
+
+    def _safe_persist(self, operation: str, persist: Callable[[], object]) -> None:
+        """Run a persistence operation without failing the AI workflow."""
+
+        try:
+            persist()
+        except Exception as exc:
+            logger.exception("Failed to persist %s; continuing workflow.", operation)
+            logger.debug("Persistence failure details: %s", exc)
 
     def _stop_with_error(
         self,
