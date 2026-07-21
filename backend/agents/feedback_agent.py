@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from crewai import Agent
 
-from backend.agents.base_agent import create_base_agent
+from backend.agents.base_agent import create_base_agent, run_with_gemini_retry
 from backend.core.config import get_settings
 from backend.schemas.feedback import FeedbackReport
 from backend.schemas.planner import LearningPlan
@@ -170,12 +170,15 @@ def generate_feedback_report(
         return _generate_mock_feedback_report(plan, progress_report)
 
     feedback_agent = agent or create_feedback_agent()
-    result = feedback_agent.kickoff(
-        FEEDBACK_PROMPT.format(
-            learning_plan=plan.model_dump_json(indent=2),
-            progress_report=progress_report.model_dump_json(indent=2),
+    result = run_with_gemini_retry(
+        "Feedback Agent",
+        lambda: feedback_agent.kickoff(
+            FEEDBACK_PROMPT.format(
+                learning_plan=plan.model_dump_json(indent=2),
+                progress_report=progress_report.model_dump_json(indent=2),
+            ),
+            response_format=FeedbackReport,
         ),
-        response_format=FeedbackReport,
     )
     if result.pydantic is None:
         raise ValueError("Feedback Agent did not return structured output.")

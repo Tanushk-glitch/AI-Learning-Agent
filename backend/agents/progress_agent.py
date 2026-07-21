@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from crewai import Agent
 
-from backend.agents.base_agent import create_base_agent
+from backend.agents.base_agent import create_base_agent, run_with_gemini_retry
 from backend.core.config import get_settings
 from backend.schemas.planner import LearningPlan
 from backend.schemas.progress import LearnerProgress, LearnerStatus, ProgressReport
@@ -209,12 +209,15 @@ def generate_progress_report(
         return _generate_mock_progress_report(plan, progress)
 
     progress_agent = agent or create_progress_agent()
-    result = progress_agent.kickoff(
-        PROGRESS_PROMPT.format(
-            learning_plan=plan.model_dump_json(indent=2),
-            current_progress=progress.model_dump_json(indent=2),
+    result = run_with_gemini_retry(
+        "Progress Agent",
+        lambda: progress_agent.kickoff(
+            PROGRESS_PROMPT.format(
+                learning_plan=plan.model_dump_json(indent=2),
+                current_progress=progress.model_dump_json(indent=2),
+            ),
+            response_format=ProgressReport,
         ),
-        response_format=ProgressReport,
     )
     if result.pydantic is None:
         raise ValueError("Progress Agent did not return structured output.")

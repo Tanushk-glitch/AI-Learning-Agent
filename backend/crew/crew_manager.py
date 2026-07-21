@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from backend.agents.base_agent import TransientLLMError
 from backend.agents.feedback_agent import FeedbackValidationError
 from backend.agents.nudge_agent import NudgeValidationError
 from backend.agents.planner_agent import PlannerValidationError
@@ -97,6 +98,12 @@ class CrewManager:
             self._persist_feedback(user_id, state)
             self._run_nudge_stage(state)
             self._persist_nudge(user_id, state)
+        except TransientLLMError:
+            logger.exception(
+                "Transient LLM failure at stage %s after retry attempts.",
+                state.current_stage,
+            )
+            raise
         except (
             PlannerValidationError,
             ProgressValidationError,

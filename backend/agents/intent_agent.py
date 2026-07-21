@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from crewai import Agent
 
-from backend.agents.base_agent import create_base_agent
+from backend.agents.base_agent import create_base_agent, run_with_gemini_retry
 from backend.core.config import get_settings
 from backend.schemas.intent import LearnerIntent
 
@@ -108,9 +108,12 @@ def analyze_learner_intent(
         return _generate_mock_learner_intent(user_request)
 
     intent_agent = agent or create_intent_agent()
-    result = intent_agent.kickoff(
-        INTENT_EXTRACTION_PROMPT.format(user_request=user_request),
-        response_format=LearnerIntent,
+    result = run_with_gemini_retry(
+        "Intent Agent",
+        lambda: intent_agent.kickoff(
+            INTENT_EXTRACTION_PROMPT.format(user_request=user_request),
+            response_format=LearnerIntent,
+        ),
     )
     if result.pydantic is None:
         raise ValueError("Intent Agent did not return structured output.")

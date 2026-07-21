@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from crewai import Agent
 
-from backend.agents.base_agent import create_base_agent
+from backend.agents.base_agent import create_base_agent, run_with_gemini_retry
 from backend.core.config import get_settings
 from backend.schemas.intent import LearnerIntent
 from backend.schemas.planner import LearningPhase, LearningPlan
@@ -213,11 +213,14 @@ def generate_learning_plan(
         return _generate_mock_learning_plan(intent)
 
     planner_agent = agent or create_planner_agent()
-    result = planner_agent.kickoff(
-        PLANNER_PROMPT.format(
-            learner_intent=intent.model_dump_json(indent=2),
+    result = run_with_gemini_retry(
+        "Planner Agent",
+        lambda: planner_agent.kickoff(
+            PLANNER_PROMPT.format(
+                learner_intent=intent.model_dump_json(indent=2),
+            ),
+            response_format=LearningPlan,
         ),
-        response_format=LearningPlan,
     )
     if result.pydantic is None:
         raise ValueError("Planner Agent did not return structured output.")
