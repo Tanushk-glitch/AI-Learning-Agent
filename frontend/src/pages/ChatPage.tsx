@@ -5,16 +5,22 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatResponse } from "@/components/chat/ChatResponse";
 import { ErrorState } from "@/components/chat/ErrorState";
 import { LoadingState } from "@/components/chat/LoadingState";
+import { useSession } from "@/context/SessionContext";
+import type { SessionState } from "@/context/sessionTypes";
 import { useStartLearningSession } from "@/hooks/useLearningApi";
+import type { LearningSessionResponse } from "@/types/learning";
 
 const MIN_PROMPT_LENGTH = 10;
 
 export function ChatPage() {
   const [prompt, setPrompt] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const { saveWorkflow, setError, setLoading, state: sessionState } =
+    useSession();
   const startLearningSession = useStartLearningSession();
 
-  const response = startLearningSession.data?.data ?? null;
+  const response =
+    startLearningSession.data?.data ?? sessionStateToWorkflow(sessionState);
   const apiError = startLearningSession.error?.message ?? null;
 
   function handlePromptChange(value: string) {
@@ -40,11 +46,22 @@ export function ChatPage() {
     }
 
     setValidationError(null);
-    startLearningSession.mutate({
-      user_name: "Frontend Learner",
-      email: null,
-      prompt: trimmedPrompt,
-    });
+    setLoading();
+    startLearningSession.mutate(
+      {
+        user_name: "Frontend Learner",
+        email: null,
+        prompt: trimmedPrompt,
+      },
+      {
+        onSuccess: (data) => {
+          saveWorkflow(data.data);
+        },
+        onError: (error) => {
+          setError(error.message);
+        },
+      }
+    );
   }
 
   return (
@@ -90,4 +107,30 @@ export function ChatPage() {
       ) : null}
     </div>
   );
+}
+
+function sessionStateToWorkflow(
+  sessionState: SessionState
+): LearningSessionResponse | null {
+  if (
+    sessionState.intent === null &&
+    sessionState.learningPlan === null &&
+    sessionState.progress === null &&
+    sessionState.feedback === null &&
+    sessionState.nudges === null &&
+    sessionState.currentStage === null
+  ) {
+    return null;
+  }
+
+  return {
+    learner_intent: sessionState.intent,
+    learning_plan: sessionState.learningPlan,
+    progress_report: sessionState.progress,
+    feedback_report: sessionState.feedback,
+    nudge_report: sessionState.nudges,
+    workflow_completed: sessionState.workflowCompleted,
+    current_stage: sessionState.currentStage ?? "unknown",
+    error_message: sessionState.error,
+  };
 }

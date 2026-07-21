@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { QueryObserverResult } from "@tanstack/react-query";
 
 import {
   useFeedback,
@@ -72,6 +73,24 @@ export function ApiTestPage() {
     }
   }
 
+  async function runQueryRequest<TData>(
+    label: string,
+    request: () => Promise<QueryObserverResult<TData, Error>>
+  ) {
+    setResult({ label, status: "loading" });
+    const queryResult = await request();
+    if (queryResult.error) {
+      setResult({
+        label,
+        status: "error",
+        error: queryResult.error.message,
+      });
+      return;
+    }
+
+    setResult({ label, status: "success", data: queryResult.data });
+  }
+
   function requireUserId() {
     if (validUserId === null) {
       setResult({
@@ -99,14 +118,14 @@ export function ApiTestPage() {
             disabled={isLoading}
             label="Get API Root"
             onClick={() => {
-              void runRequest("GET /", () => rootQuery.refetch());
+              void runQueryRequest("GET /", () => rootQuery.refetch());
             }}
           />
           <ApiButton
             disabled={isLoading}
             label="Get Health"
             onClick={() => {
-              void runRequest("GET /health", () => healthQuery.refetch());
+              void runQueryRequest("GET /health", () => healthQuery.refetch());
             }}
           />
         </div>
@@ -175,7 +194,7 @@ export function ApiTestPage() {
             label="Get User"
             onClick={() => {
               if (requireUserId()) {
-                void runRequest("GET /users/{id}", () => userQuery.refetch());
+                void runQueryRequest("GET /users/{id}", () => userQuery.refetch());
               }
             }}
           />
@@ -184,7 +203,7 @@ export function ApiTestPage() {
             label="Get Intent"
             onClick={() => {
               if (requireUserId()) {
-                void runRequest("GET /users/{id}/intent", () =>
+                void runQueryRequest("GET /users/{id}/intent", () =>
                   intentQuery.refetch()
                 );
               }
@@ -195,7 +214,7 @@ export function ApiTestPage() {
             label="Get Plan"
             onClick={() => {
               if (requireUserId()) {
-                void runRequest("GET /users/{id}/plan", () =>
+                void runQueryRequest("GET /users/{id}/plan", () =>
                   planQuery.refetch()
                 );
               }
@@ -206,7 +225,7 @@ export function ApiTestPage() {
             label="Get Progress"
             onClick={() => {
               if (requireUserId()) {
-                void runRequest("GET /users/{id}/progress", () =>
+                void runQueryRequest("GET /users/{id}/progress", () =>
                   progressQuery.refetch()
                 );
               }
@@ -217,7 +236,7 @@ export function ApiTestPage() {
             label="Get Feedback"
             onClick={() => {
               if (requireUserId()) {
-                void runRequest("GET /users/{id}/feedback", () =>
+                void runQueryRequest("GET /users/{id}/feedback", () =>
                   feedbackQuery.refetch()
                 );
               }
@@ -228,7 +247,7 @@ export function ApiTestPage() {
             label="Get Nudges"
             onClick={() => {
               if (requireUserId()) {
-                void runRequest("GET /users/{id}/nudges", () =>
+                void runQueryRequest("GET /users/{id}/nudges", () =>
                   nudgesQuery.refetch()
                 );
               }
