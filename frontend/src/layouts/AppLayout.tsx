@@ -1,4 +1,10 @@
-import { BookOpen, LayoutDashboard, MessageSquare, TrendingUp } from "lucide-react";
+import {
+  BookOpen,
+  FlaskConical,
+  LayoutDashboard,
+  MessageSquare,
+  TrendingUp,
+} from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { cn } from "@/utils/cn";
@@ -9,6 +15,7 @@ const navigationItems = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { label: "Learning Plan", to: "/learning-plan", icon: BookOpen },
   { label: "Progress", to: "/progress", icon: TrendingUp },
+  { label: "API Test", to: "/api-test", icon: FlaskConical },
 ];
 
 export function AppLayout() {

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "@/layouts/AppLayout";
+import { ApiTestPage } from "@/pages/ApiTestPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HomePage } from "@/pages/HomePage";
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="learning-plan" element={<LearningPlanPage />} />
         <Route path="progress" element={<ProgressPage />} />
+        <Route path="api-test" element={<ApiTestPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
