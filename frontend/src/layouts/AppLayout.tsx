@@ -3,6 +3,7 @@ import {
   FlaskConical,
   LayoutDashboard,
   MessageSquare,
+  MessagesSquare,
   TrendingUp,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
@@ -15,6 +16,7 @@ const navigationItems = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { label: "Learning Plan", to: "/learning-plan", icon: BookOpen },
   { label: "Progress", to: "/progress", icon: TrendingUp },
+  { label: "Feedback", to: "/feedback", icon: MessagesSquare },
   { label: "API Test", to: "/api-test", icon: FlaskConical },
 ];
 
