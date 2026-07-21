@@ -17,7 +17,7 @@ import type {
   SessionContextValue,
   SessionState,
 } from "@/context/sessionTypes";
-import type { LearningSessionResponse, User } from "@/types/learning";
+import type { LearningPlan, LearningSessionResponse, User } from "@/types/learning";
 
 const SESSION_STORAGE_KEY = "ai-learning-agent-session";
 
@@ -100,19 +100,58 @@ function loadStoredSession(): SessionState {
 
   try {
     const parsedSession: unknown = JSON.parse(storedSession);
-    if (!isValidSessionState(parsedSession)) {
+    const normalizedSession = normalizeStoredSession(parsedSession);
+    if (!normalizedSession) {
       sessionStorage.removeItem(SESSION_STORAGE_KEY);
       return initialSessionState;
     }
 
     return {
-      ...parsedSession,
+      ...normalizedSession,
       isLoading: false,
     };
   } catch {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
     return initialSessionState;
   }
+}
+
+function normalizeStoredSession(value: unknown): SessionState | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const candidate = {
+    ...value,
+    learningPlan: getStoredLearningPlan(value),
+  };
+
+  if (!isValidSessionState(candidate)) {
+    return null;
+  }
+
+  return candidate;
+}
+
+function getStoredLearningPlan(value: Record<string, unknown>): LearningPlan | null {
+  const camelPlan = value.learningPlan;
+  const snakePlan = value.learning_plan;
+  const genericPlan = value.plan;
+
+  if (isLearningPlan(camelPlan)) {
+    return camelPlan;
+  }
+  if (isLearningPlan(snakePlan)) {
+    return snakePlan;
+  }
+  if (isLearningPlan(genericPlan)) {
+    return genericPlan;
+  }
+  if (isRecord(genericPlan) && isLearningPlan(genericPlan.plan_json)) {
+    return genericPlan.plan_json;
+  }
+
+  return null;
 }
 
 function isValidSessionState(value: unknown): value is SessionState {
@@ -136,6 +175,23 @@ function isValidSessionState(value: unknown): value is SessionState {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isLearningPlan(value: unknown): value is LearningPlan {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.learning_goal === "string" &&
+    typeof value.subject === "string" &&
+    typeof value.learner_level === "string" &&
+    typeof value.total_available_time === "string" &&
+    typeof value.target_deadline === "string" &&
+    typeof value.overview === "string" &&
+    Array.isArray(value.phases) &&
+    typeof value.final_milestone === "string"
+  );
 }
 
 function isEmptySession(state: SessionState): boolean {

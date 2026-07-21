@@ -1,4 +1,5 @@
 import type { SessionAction, SessionState } from "@/context/sessionTypes";
+import type { LearningPlan, LearningSessionResponse } from "@/types/learning";
 
 export const initialSessionState: SessionState = {
   user: null,
@@ -28,7 +29,7 @@ export function sessionReducer(
       return {
         user: action.payload.user ?? state.user,
         intent: action.payload.workflow.learner_intent,
-        learningPlan: action.payload.workflow.learning_plan,
+        learningPlan: getWorkflowLearningPlan(action.payload.workflow),
         progress: action.payload.workflow.progress_report,
         feedback: action.payload.workflow.feedback_report,
         nudges: action.payload.workflow.nudge_report,
@@ -53,4 +54,50 @@ export function sessionReducer(
     default:
       return state;
   }
+}
+
+function getWorkflowLearningPlan(
+  workflow: LearningSessionResponse
+): LearningPlan | null {
+  const workflowRecord = workflow as LearningSessionResponse &
+    Record<string, unknown>;
+  const directPlan = workflow.learning_plan;
+  const camelPlan = workflowRecord.learningPlan;
+  const genericPlan = workflowRecord.plan;
+
+  if (isLearningPlan(directPlan)) {
+    return directPlan;
+  }
+  if (isLearningPlan(camelPlan)) {
+    return camelPlan;
+  }
+  if (isLearningPlan(genericPlan)) {
+    return genericPlan;
+  }
+  if (isRecord(genericPlan) && isLearningPlan(genericPlan.plan_json)) {
+    return genericPlan.plan_json;
+  }
+
+  return null;
+}
+
+function isLearningPlan(value: unknown): value is LearningPlan {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.learning_goal === "string" &&
+    typeof value.subject === "string" &&
+    typeof value.learner_level === "string" &&
+    typeof value.total_available_time === "string" &&
+    typeof value.target_deadline === "string" &&
+    typeof value.overview === "string" &&
+    Array.isArray(value.phases) &&
+    typeof value.final_milestone === "string"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
