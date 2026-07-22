@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend.agents.base_agent import TransientLLMError
 from backend.api.schemas.common import ErrorResponse, SuccessResponse
 from backend.database.crud import PersistenceError
 from backend.schemas.learning_session import LearningSessionResponse
@@ -171,6 +172,10 @@ ERROR_RESPONSES = {
         "model": ErrorResponse,
         "description": "An unexpected server or persistence error occurred.",
     },
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ErrorResponse,
+        "description": "The Gemini service is temporarily unavailable.",
+    },
 }
 
 
@@ -223,6 +228,18 @@ async def start_learning_session(
             user_name=request.user_name,
             user_email=request.email,
         )
+    except TransientLLMError as exc:
+        logger.warning("Learning session failed because Gemini is unavailable: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "message": (
+                    "The AI service is temporarily unavailable. "
+                    "Please try again shortly."
+                ),
+                "error_code": "LLM_UNAVAILABLE",
+            },
+        ) from exc
     except ValueError as exc:
         logger.exception("Learning session request validation failed.")
         raise HTTPException(

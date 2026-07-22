@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from crewai import Agent
 
-from backend.agents.base_agent import create_base_agent
+from backend.agents.base_agent import create_base_agent, run_with_gemini_retry
 from backend.core.config import get_settings
 from backend.schemas.feedback import FeedbackReport
 from backend.schemas.nudge import NudgeLearnerStatus, NudgeReport, NudgeType, NudgeUrgency
@@ -63,7 +63,7 @@ def create_nudge_agent() -> Agent:
             "nudges respectful, practical, and grounded in the supplied reports."
         ),
         max_iter=3,
-        max_retry_limit=2,
+        max_retry_limit=0,
     )
 
 
@@ -252,13 +252,18 @@ def generate_nudge_report(
         return _generate_mock_nudge_report(plan, progress_report, feedback_report)
 
     nudge_agent = agent or create_nudge_agent()
-    result = nudge_agent.kickoff(
-        NUDGE_PROMPT.format(
-            learning_plan=plan.model_dump_json(indent=2),
-            progress_report=progress_report.model_dump_json(indent=2),
-            feedback_report=feedback_report.model_dump_json(indent=2),
+    prompt = NUDGE_PROMPT.format(
+        learning_plan=plan.model_dump_json(indent=2),
+        progress_report=progress_report.model_dump_json(indent=2),
+        feedback_report=feedback_report.model_dump_json(indent=2),
+    )
+    result = run_with_gemini_retry(
+        "Nudge Agent",
+        lambda: nudge_agent.kickoff(
+            prompt,
+            response_format=NudgeReport,
         ),
-        response_format=NudgeReport,
+        prompt=prompt,
     )
     if result.pydantic is None:
         raise ValueError("Nudge Agent did not return structured output.")

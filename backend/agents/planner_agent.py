@@ -9,19 +9,15 @@ from __future__ import annotations
 
 from crewai import Agent
 
-from backend.agents.base_agent import create_base_agent
+from backend.agents.base_agent import create_base_agent, run_with_gemini_retry
 from backend.core.config import get_settings
-from backend.schemas.intent import LearnerIntent
+from backend.schemas.intent import (
+    LearnerIntent,
+    missing_required_intent_fields,
+    reconcile_intent_completeness,
+)
 from backend.schemas.planner import LearningPhase, LearningPlan
 
-
-REQUIRED_INTENT_FIELDS = (
-    "learning_goal",
-    "subject",
-    "current_skill_level",
-    "available_time",
-    "target_deadline",
-)
 
 PLANNER_PROMPT = """Create a personalized learning roadmap from this structured learner intent.
 
@@ -61,27 +57,18 @@ def create_planner_agent() -> Agent:
             "available study time, current skill level, and deadlines."
         ),
         max_iter=4,
-        max_retry_limit=2,
+        max_retry_limit=0,
     )
 
 
 def _validate_complete_intent(intent: LearnerIntent) -> None:
     """Validate that the Planner has enough learner information to proceed."""
 
-    missing_fields = [
-        field_name
-        for field_name in REQUIRED_INTENT_FIELDS
-        if not getattr(intent, field_name)
-    ]
-
-    if not intent.is_complete:
-        missing_fields.extend(intent.missing_information)
-
-    unique_missing_fields = sorted(set(missing_fields))
-    if unique_missing_fields:
+    missing_fields = missing_required_intent_fields(intent)
+    if missing_fields:
         raise PlannerValidationError(
             "Cannot generate a learning roadmap until learner intent is complete. "
-            f"Missing information: {', '.join(unique_missing_fields)}."
+            f"Missing information: {', '.join(missing_fields)}."
         )
 
 
@@ -208,16 +195,22 @@ def generate_learning_plan(
 ) -> LearningPlan:
     """Generate a structured roadmap from a complete LearnerIntent object."""
 
+    intent = reconcile_intent_completeness(intent)
     _validate_complete_intent(intent)
     if get_settings().mock_mode:
         return _generate_mock_learning_plan(intent)
 
     planner_agent = agent or create_planner_agent()
-    result = planner_agent.kickoff(
-        PLANNER_PROMPT.format(
-            learner_intent=intent.model_dump_json(indent=2),
+    prompt = PLANNER_PROMPT.format(
+        learner_intent=intent.model_dump_json(indent=2),
+    )
+    result = run_with_gemini_retry(
+        "Planner Agent",
+        lambda: planner_agent.kickoff(
+            prompt,
+            response_format=LearningPlan,
         ),
-        response_format=LearningPlan,
+        prompt=prompt,
     )
     if result.pydantic is None:
         raise ValueError("Planner Agent did not return structured output.")

@@ -7,13 +7,18 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from backend.agents.base_agent import TransientLLMError
 from backend.agents.feedback_agent import FeedbackValidationError
 from backend.agents.nudge_agent import NudgeValidationError
 from backend.agents.planner_agent import PlannerValidationError
 from backend.agents.progress_agent import ProgressValidationError
 from backend.crew.learning_crew import LearningCrew
 from backend.schemas.feedback import FeedbackReport
-from backend.schemas.intent import LearnerIntent
+from backend.schemas.intent import (
+    LearnerIntent,
+    missing_required_intent_fields,
+    reconcile_intent_completeness,
+)
 from backend.schemas.learning_session import LearningSessionResponse
 from backend.schemas.nudge import NudgeReport
 from backend.schemas.planner import LearningPlan
@@ -79,13 +84,22 @@ class CrewManager:
                     "Intent Agent did not return learner intent.",
                 )
 
-            if not state.learner_intent.is_complete:
-                logger.info("Intent incomplete. Stopping workflow for follow-up.")
+            missing_intent_fields = missing_required_intent_fields(
+                state.learner_intent
+            )
+            if missing_intent_fields:
+                logger.info(
+                    "Intent incomplete. Missing required fields: %s",
+                    ", ".join(missing_intent_fields),
+                )
                 return self._response(
                     state,
                     workflow_completed=False,
                     current_stage="intent_follow_up_required",
-                    error_message="Learner intent is incomplete.",
+                    error_message=(
+                        "Learner intent is incomplete. Missing information: "
+                        f"{', '.join(missing_intent_fields)}."
+                    ),
                 )
 
             self._persist_intent(user_id, state)
@@ -97,6 +111,12 @@ class CrewManager:
             self._persist_feedback(user_id, state)
             self._run_nudge_stage(state)
             self._persist_nudge(user_id, state)
+        except TransientLLMError:
+            logger.warning(
+                "Transient LLM failure at stage %s after retry attempts.",
+                state.current_stage,
+            )
+            raise
         except (
             PlannerValidationError,
             ProgressValidationError,
@@ -130,7 +150,9 @@ class CrewManager:
 
         state.current_stage = "intent"
         logger.info("Running Intent Agent")
-        state.learner_intent = self.learning_crew.run_intent(user_request)
+        state.learner_intent = reconcile_intent_completeness(
+            self.learning_crew.run_intent(user_request)
+        )
         logger.info("Intent Completed")
 
     def _run_planner_stage(self, state: WorkflowState) -> None:
