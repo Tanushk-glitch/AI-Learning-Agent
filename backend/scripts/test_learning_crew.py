@@ -20,6 +20,9 @@ from backend.utils.console import configure_utf8_output
 configure_utf8_output(sys.stdout, sys.stderr)
 
 from backend.core.config import get_settings
+from backend.crew.crew_manager import CrewManager
+from backend.crew.learning_crew import LearningCrew
+from backend.schemas.intent import LearnerIntent
 from backend.schemas.learning_session import LearningSessionResponse
 from backend.services.learning_session_service import run_learning_session
 
@@ -121,6 +124,23 @@ def _run_scenario(name: str, user_request: str) -> LearningSessionResponse:
     return response
 
 
+class _IncorrectCompletenessIntentCrew(LearningCrew):
+    """Simulate an LLM response that incorrectly treats subject as required."""
+
+    def run_intent(self, user_request: str) -> LearnerIntent:
+        return LearnerIntent(
+            learning_goal="Become a data scientist",
+            subject=None,
+            current_skill_level="Complete beginner",
+            available_time="3 hours every day",
+            target_deadline="3 months",
+            preferred_learning_style=None,
+            is_complete=False,
+            missing_information=["subject"],
+            follow_up_questions=["Which subject do you want to study?"],
+        )
+
+
 def _run_real_mode_scenario(user_request: str) -> int:
     """Run the optional real-mode scenario if configuration allows it."""
 
@@ -171,6 +191,28 @@ def main() -> int:
         )
         if not scenario_1.workflow_completed or scenario_1.nudge_report is None:
             print("Scenario 1 failed: workflow did not reach the Nudge Agent.")
+            return 1
+
+        regression_request = (
+            "I want to become a data scientist in 3 months. "
+            "I am a complete beginner. I can give 3 hours every day."
+        )
+        scenario_regression = CrewManager(
+            learning_crew=_IncorrectCompletenessIntentCrew()
+        ).run_learning_workflow(regression_request)
+        _print_response(scenario_regression)
+        if (
+            not scenario_regression.workflow_completed
+            or scenario_regression.current_stage != "completed"
+            or scenario_regression.learning_plan is None
+            or scenario_regression.progress_report is None
+            or scenario_regression.feedback_report is None
+            or scenario_regression.nudge_report is None
+        ):
+            print(
+                "Regression scenario failed: four complete required fields did "
+                "not reach every agent."
+            )
             return 1
 
         scenario_2 = _run_scenario(

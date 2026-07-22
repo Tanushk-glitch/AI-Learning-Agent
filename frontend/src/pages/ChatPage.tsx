@@ -5,6 +5,7 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatResponse } from "@/components/chat/ChatResponse";
 import { ErrorState } from "@/components/chat/ErrorState";
 import { LoadingState } from "@/components/chat/LoadingState";
+import { ApiRequestError } from "@/api/apiClient";
 import { useSession } from "@/context/SessionContext";
 import type { SessionState } from "@/context/sessionTypes";
 import { useStartLearningSession } from "@/hooks/useLearningApi";
@@ -14,6 +15,7 @@ const MIN_PROMPT_LENGTH = 10;
 
 export function ChatPage() {
   const [prompt, setPrompt] = useState("");
+  const [lastSubmittedPrompt, setLastSubmittedPrompt] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const { saveWorkflow, setError, setLoading, state: sessionState } =
     useSession();
@@ -22,6 +24,9 @@ export function ChatPage() {
   const response =
     startLearningSession.data?.data ?? sessionStateToWorkflow(sessionState);
   const apiError = startLearningSession.error?.message ?? null;
+  const isLlmUnavailable =
+    startLearningSession.error instanceof ApiRequestError &&
+    startLearningSession.error.errorCode === "LLM_UNAVAILABLE";
 
   function handlePromptChange(value: string) {
     setPrompt(value);
@@ -32,6 +37,13 @@ export function ChatPage() {
 
   function handleSubmit() {
     const trimmedPrompt = prompt.trim();
+    submitPrompt(trimmedPrompt);
+  }
+
+  function submitPrompt(trimmedPrompt: string) {
+    if (startLearningSession.isPending) {
+      return;
+    }
 
     if (!trimmedPrompt) {
       setValidationError("Enter a learning goal before generating a plan.");
@@ -46,6 +58,7 @@ export function ChatPage() {
     }
 
     setValidationError(null);
+    setLastSubmittedPrompt(trimmedPrompt);
     setLoading();
     startLearningSession.mutate(
       {
@@ -62,6 +75,13 @@ export function ChatPage() {
         },
       }
     );
+  }
+
+  function handleRetry() {
+    if (lastSubmittedPrompt) {
+      setPrompt(lastSubmittedPrompt);
+      submitPrompt(lastSubmittedPrompt);
+    }
   }
 
   return (
@@ -94,7 +114,17 @@ export function ChatPage() {
 
       {startLearningSession.isPending ? <LoadingState /> : null}
 
-      {apiError ? <ErrorState message={apiError} /> : null}
+      {apiError ? (
+        <ErrorState
+          isRetryable={isLlmUnavailable}
+          message={
+            isLlmUnavailable
+              ? "Your request could not be completed right now. Please try again in a minute."
+              : apiError
+          }
+          onRetry={isLlmUnavailable ? handleRetry : undefined}
+        />
+      ) : null}
 
       {response ? (
         <div className="space-y-4">

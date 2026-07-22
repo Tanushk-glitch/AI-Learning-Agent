@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 
 from google import genai
-from google.genai import types
 
 from backend.utils.console import configure_utf8_output
 
@@ -46,11 +45,6 @@ def main() -> int:
             contents=(
                 "Reply with exactly this sentence and nothing else: "
                 "AI-Learning-Agent Gemini connection verified."
-            ),
-            config=types.GenerateContentConfig(
-                temperature=0,
-                max_output_tokens=128,
-                thinking_config=types.ThinkingConfig(thinking_budget=0),
             ),
         )
     except Exception as exc:

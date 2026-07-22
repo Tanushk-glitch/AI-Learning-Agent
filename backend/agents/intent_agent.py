@@ -10,16 +10,15 @@ from crewai import Agent
 
 from backend.agents.base_agent import create_base_agent, run_with_gemini_retry
 from backend.core.config import get_settings
-from backend.schemas.intent import LearnerIntent
+from backend.schemas.intent import LearnerIntent, reconcile_intent_completeness
 
 
 INTENT_EXTRACTION_PROMPT = """Analyze the learner request below.
 
 Extract the user's learning intent into the required structured schema.
 
-Essential fields:
+Workflow-required fields:
 - learning_goal
-- subject
 - current_skill_level
 - available_time
 - target_deadline
@@ -27,8 +26,13 @@ Essential fields:
 Rules:
 - Do not invent missing information.
 - Use null for fields that are not explicitly stated or clearly implied.
-- If any essential field is missing, set is_complete to false.
-- For each missing essential field, add a short clear follow-up question.
+- Extract subject from the stated topic, skill, domain, or career goal. A goal
+  such as "become a data scientist" clearly implies Data Science as the subject.
+- Subject supports planning but is not a separate completeness requirement when
+  the learning goal already identifies the domain.
+- Set is_complete to true when all four workflow-required fields are present.
+- Only set is_complete to false when a workflow-required field is missing.
+- For each missing workflow-required field, add a short clear follow-up question.
 - Only include preferred_learning_style when the learner mentions or strongly implies it.
 - Keep follow-up questions practical and learner-friendly.
 
@@ -53,7 +57,7 @@ def create_intent_agent() -> Agent:
             "guess missing details."
         ),
         max_iter=3,
-        max_retry_limit=2,
+        max_retry_limit=0,
     )
 
 
@@ -105,17 +109,21 @@ def analyze_learner_intent(
         raise ValueError("Learner request cannot be empty.")
 
     if get_settings().mock_mode:
-        return _generate_mock_learner_intent(user_request)
+        return reconcile_intent_completeness(
+            _generate_mock_learner_intent(user_request)
+        )
 
     intent_agent = agent or create_intent_agent()
+    prompt = INTENT_EXTRACTION_PROMPT.format(user_request=user_request)
     result = run_with_gemini_retry(
         "Intent Agent",
         lambda: intent_agent.kickoff(
-            INTENT_EXTRACTION_PROMPT.format(user_request=user_request),
+            prompt,
             response_format=LearnerIntent,
         ),
+        prompt=prompt,
     )
     if result.pydantic is None:
         raise ValueError("Intent Agent did not return structured output.")
 
-    return result.pydantic
+    return reconcile_intent_completeness(result.pydantic)

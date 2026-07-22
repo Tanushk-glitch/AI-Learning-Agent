@@ -54,7 +54,7 @@ def create_progress_agent() -> Agent:
             "choose the next practical task without inventing progress."
         ),
         max_iter=3,
-        max_retry_limit=2,
+        max_retry_limit=0,
     )
 
 
@@ -209,15 +209,17 @@ def generate_progress_report(
         return _generate_mock_progress_report(plan, progress)
 
     progress_agent = agent or create_progress_agent()
+    prompt = PROGRESS_PROMPT.format(
+        learning_plan=plan.model_dump_json(indent=2),
+        current_progress=progress.model_dump_json(indent=2),
+    )
     result = run_with_gemini_retry(
         "Progress Agent",
         lambda: progress_agent.kickoff(
-            PROGRESS_PROMPT.format(
-                learning_plan=plan.model_dump_json(indent=2),
-                current_progress=progress.model_dump_json(indent=2),
-            ),
+            prompt,
             response_format=ProgressReport,
         ),
+        prompt=prompt,
     )
     if result.pydantic is None:
         raise ValueError("Progress Agent did not return structured output.")

@@ -55,7 +55,7 @@ def create_feedback_agent() -> Agent:
             "the provided progress report."
         ),
         max_iter=3,
-        max_retry_limit=2,
+        max_retry_limit=0,
     )
 
 
@@ -170,15 +170,17 @@ def generate_feedback_report(
         return _generate_mock_feedback_report(plan, progress_report)
 
     feedback_agent = agent or create_feedback_agent()
+    prompt = FEEDBACK_PROMPT.format(
+        learning_plan=plan.model_dump_json(indent=2),
+        progress_report=progress_report.model_dump_json(indent=2),
+    )
     result = run_with_gemini_retry(
         "Feedback Agent",
         lambda: feedback_agent.kickoff(
-            FEEDBACK_PROMPT.format(
-                learning_plan=plan.model_dump_json(indent=2),
-                progress_report=progress_report.model_dump_json(indent=2),
-            ),
+            prompt,
             response_format=FeedbackReport,
         ),
+        prompt=prompt,
     )
     if result.pydantic is None:
         raise ValueError("Feedback Agent did not return structured output.")

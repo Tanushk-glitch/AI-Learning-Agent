@@ -21,7 +21,7 @@ from backend.database.models import (
     User,
 )
 from backend.schemas.feedback import FeedbackReport
-from backend.schemas.intent import LearnerIntent
+from backend.schemas.intent import LearnerIntent, missing_required_intent_fields
 from backend.schemas.nudge import NudgeReport
 from backend.schemas.planner import LearningPlan
 from backend.schemas.progress import ProgressReport
@@ -185,18 +185,9 @@ class PersistenceService:
     def _validate_complete_intent(self, intent: LearnerIntent) -> None:
         """Ensure intent has all non-null fields required by the database table."""
 
-        required_values = {
-            "learning_goal": intent.learning_goal,
-            "subject": intent.subject,
-            "current_skill_level": intent.current_skill_level,
-            "available_time": intent.available_time,
-            "target_deadline": intent.target_deadline,
-        }
-        missing_fields = [
-            field_name
-            for field_name, value in required_values.items()
-            if value is None
-        ]
+        missing_fields = missing_required_intent_fields(intent)
+        if not intent.subject:
+            missing_fields.append("subject")
         if missing_fields:
             raise PersistenceError(
                 "Cannot persist incomplete learner intent. Missing fields: "

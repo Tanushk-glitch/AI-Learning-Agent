@@ -229,12 +229,15 @@ async def start_learning_session(
             user_email=request.email,
         )
     except TransientLLMError as exc:
-        logger.exception("Learning session failed because Gemini is unavailable.")
+        logger.warning("Learning session failed because Gemini is unavailable: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
-                "message": str(exc),
-                "error_code": "llm_temporarily_unavailable",
+                "message": (
+                    "The AI service is temporarily unavailable. "
+                    "Please try again shortly."
+                ),
+                "error_code": "LLM_UNAVAILABLE",
             },
         ) from exc
     except ValueError as exc:

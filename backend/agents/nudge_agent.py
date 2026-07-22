@@ -63,7 +63,7 @@ def create_nudge_agent() -> Agent:
             "nudges respectful, practical, and grounded in the supplied reports."
         ),
         max_iter=3,
-        max_retry_limit=2,
+        max_retry_limit=0,
     )
 
 
@@ -252,16 +252,18 @@ def generate_nudge_report(
         return _generate_mock_nudge_report(plan, progress_report, feedback_report)
 
     nudge_agent = agent or create_nudge_agent()
+    prompt = NUDGE_PROMPT.format(
+        learning_plan=plan.model_dump_json(indent=2),
+        progress_report=progress_report.model_dump_json(indent=2),
+        feedback_report=feedback_report.model_dump_json(indent=2),
+    )
     result = run_with_gemini_retry(
         "Nudge Agent",
         lambda: nudge_agent.kickoff(
-            NUDGE_PROMPT.format(
-                learning_plan=plan.model_dump_json(indent=2),
-                progress_report=progress_report.model_dump_json(indent=2),
-                feedback_report=feedback_report.model_dump_json(indent=2),
-            ),
+            prompt,
             response_format=NudgeReport,
         ),
+        prompt=prompt,
     )
     if result.pydantic is None:
         raise ValueError("Nudge Agent did not return structured output.")
