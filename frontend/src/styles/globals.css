@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -24,6 +28,12 @@
     color: inherit;
     text-decoration: none;
   }
+
+  button,
+  a,
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @layer utilities {
@@ -37,5 +47,41 @@
     font-weight: 700;
     line-height: 2.25rem;
     color: #111827;
+  }
+
+  .landing-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: linear-gradient(to bottom, black, transparent 92%);
+  }
+
+  .landing-light-path {
+    background:
+      linear-gradient(
+        118deg,
+        transparent 18%,
+        rgba(37, 99, 235, 0.18) 42%,
+        transparent 61%
+      ),
+      linear-gradient(
+        64deg,
+        transparent 31%,
+        rgba(124, 58, 237, 0.13) 50%,
+        transparent 69%
+      );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
   }
 }
