@@ -1,5 +1,12 @@
 import type { SessionAction, SessionState } from "@/context/sessionTypes";
-import type { LearningPlan, LearningSessionResponse } from "@/types/learning";
+import type {
+  FeedbackReport,
+  LearnerIntent,
+  LearningPlan,
+  LearningSessionResponse,
+  NudgeReport,
+  ProgressReport,
+} from "@/types/learning";
 
 export const initialSessionState: SessionState = {
   user: null,
@@ -28,11 +35,27 @@ export function sessionReducer(
     case "SESSION_SUCCESS":
       return {
         user: action.payload.user ?? state.user,
-        intent: action.payload.workflow.learner_intent,
+        intent: getWorkflowField<LearnerIntent>(
+          action.payload.workflow,
+          "learner_intent",
+          "intent"
+        ),
         learningPlan: getWorkflowLearningPlan(action.payload.workflow),
-        progress: action.payload.workflow.progress_report,
-        feedback: action.payload.workflow.feedback_report,
-        nudges: action.payload.workflow.nudge_report,
+        progress: getWorkflowField<ProgressReport>(
+          action.payload.workflow,
+          "progress_report",
+          "progress"
+        ),
+        feedback: getWorkflowField<FeedbackReport>(
+          action.payload.workflow,
+          "feedback_report",
+          "feedback"
+        ),
+        nudges: getWorkflowField<NudgeReport>(
+          action.payload.workflow,
+          "nudge_report",
+          "nudges"
+        ),
         workflowCompleted: action.payload.workflow.workflow_completed,
         currentStage: action.payload.workflow.current_stage,
         isLoading: false,
@@ -79,6 +102,15 @@ function getWorkflowLearningPlan(
   }
 
   return null;
+}
+
+function getWorkflowField<T>(
+  workflow: LearningSessionResponse,
+  key: "learner_intent" | "progress_report" | "feedback_report" | "nudge_report",
+  alias: "intent" | "progress" | "feedback" | "nudges"
+): T | null {
+  const record = workflow as LearningSessionResponse & Record<string, unknown>;
+  return (workflow[key] ?? record[alias] ?? null) as T | null;
 }
 
 function isLearningPlan(value: unknown): value is LearningPlan {

@@ -28,6 +28,9 @@ Rules:
 - Use null for fields that are not explicitly stated or clearly implied.
 - Extract subject from the stated topic, skill, domain, or career goal. A goal
   such as "become a data scientist" clearly implies Data Science as the subject.
+- Treat statements such as "I am a beginner" as current_skill_level.
+- Treat durations such as "in 3 months" as target_deadline.
+- Treat schedules such as "3 hours every day" as available_time.
 - Subject supports planning but is not a separate completeness requirement when
   the learning goal already identifies the domain.
 - Set is_complete to true when all four workflow-required fields are present.

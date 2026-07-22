@@ -123,7 +123,11 @@ function normalizeStoredSession(value: unknown): SessionState | null {
 
   const candidate = {
     ...value,
+    intent: value.intent ?? value.learner_intent ?? null,
     learningPlan: getStoredLearningPlan(value),
+    progress: value.progress ?? value.progress_report ?? null,
+    feedback: value.feedback ?? value.feedback_report ?? null,
+    nudges: value.nudges ?? value.nudge_report ?? null,
   };
 
   if (!isValidSessionState(candidate)) {

@@ -131,7 +131,7 @@ class _IncorrectCompletenessIntentCrew(LearningCrew):
         return LearnerIntent(
             learning_goal="Become a data scientist",
             subject=None,
-            current_skill_level="Complete beginner",
+            current_skill_level="Beginner",
             available_time="3 hours every day",
             target_deadline="3 months",
             preferred_learning_style=None,
@@ -195,7 +195,7 @@ def main() -> int:
 
         regression_request = (
             "I want to become a data scientist in 3 months. "
-            "I am a complete beginner. I can give 3 hours every day."
+            "I am a beginner. I can study 3 hours every day."
         )
         scenario_regression = CrewManager(
             learning_crew=_IncorrectCompletenessIntentCrew()

@@ -90,6 +90,10 @@ export type LearningSessionResponse = {
   progress_report: ProgressReport | null;
   feedback_report: FeedbackReport | null;
   nudge_report: NudgeReport | null;
+  intent?: LearnerIntent | null;
+  progress?: ProgressReport | null;
+  feedback?: FeedbackReport | null;
+  nudges?: NudgeReport | null;
   workflow_completed: boolean;
   current_stage: string;
   error_message: string | null;
