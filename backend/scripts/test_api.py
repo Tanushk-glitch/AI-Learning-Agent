@@ -117,16 +117,30 @@ def main() -> int:
                 "user_name": "API Test User",
                 "email": email,
                 "prompt": (
-                    "I want to learn Python from scratch in 3 months. "
-                    "I can study 2 hours daily."
+                    "I want to become a data scientist in 3 months. "
+                    "I am a beginner. I can study 3 hours every day."
                 ),
             },
         )
         session_json = session_response.json()
+        workflow_data = (
+            session_json.get("data", {}) if isinstance(session_json, dict) else {}
+        )
         checks["POST /learning/session"] = (
             session_response.status_code == 201
             and _is_success_envelope(session_json)
-            and session_json["data"].get("workflow_completed") is True
+            and workflow_data.get("workflow_completed") is True
+            and workflow_data.get("current_stage") == "completed"
+            and all(
+                workflow_data.get(field_name) is not None
+                for field_name in (
+                    "learner_intent",
+                    "learning_plan",
+                    "progress_report",
+                    "feedback_report",
+                    "nudge_report",
+                )
+            )
         )
         _print_result(
             "POST /learning/session",

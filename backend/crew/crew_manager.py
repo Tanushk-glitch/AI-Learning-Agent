@@ -7,6 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
+
 from backend.agents.base_agent import TransientLLMError
 from backend.agents.feedback_agent import FeedbackValidationError
 from backend.agents.nudge_agent import NudgeValidationError
@@ -153,6 +155,7 @@ class CrewManager:
         state.learner_intent = reconcile_intent_completeness(
             self.learning_crew.run_intent(user_request)
         )
+        self._log_stage_output("intent", state.learner_intent)
         logger.info("Intent Completed")
 
     def _run_planner_stage(self, state: WorkflowState) -> None:
@@ -164,6 +167,7 @@ class CrewManager:
         state.current_stage = "planner"
         logger.info("Running Planner Agent")
         state.learning_plan = self.learning_crew.run_planner(state.learner_intent)
+        self._log_stage_output("planner", state.learning_plan)
         logger.info("Planner Completed")
 
     def _run_progress_stage(self, state: WorkflowState) -> None:
@@ -179,6 +183,7 @@ class CrewManager:
             state.learning_plan,
             initial_progress,
         )
+        self._log_stage_output("progress", state.progress_report)
         logger.info("Progress Completed")
 
     def _run_feedback_stage(self, state: WorkflowState) -> None:
@@ -195,6 +200,7 @@ class CrewManager:
             state.learning_plan,
             state.progress_report,
         )
+        self._log_stage_output("feedback", state.feedback_report)
         logger.info("Feedback Completed")
 
     def _run_nudge_stage(self, state: WorkflowState) -> None:
@@ -217,7 +223,17 @@ class CrewManager:
             state.progress_report,
             state.feedback_report,
         )
+        self._log_stage_output("nudge", state.nudge_report)
         logger.info("Nudge Completed")
+
+    def _log_stage_output(self, stage: str, output: BaseModel) -> None:
+        """Log one structured agent output for workflow tracing."""
+
+        logger.info(
+            "Workflow stage=%s output=%s",
+            stage,
+            output.model_dump_json(),
+        )
 
     def _initial_progress_for_plan(self, plan: LearningPlan) -> LearnerProgress:
         """Create the initial progress snapshot until persistent memory exists."""
@@ -362,7 +378,7 @@ class CrewManager:
     ) -> LearningSessionResponse:
         """Build the top-level workflow response."""
 
-        return LearningSessionResponse(
+        response = LearningSessionResponse(
             learner_intent=state.learner_intent,
             learning_plan=state.learning_plan,
             progress_report=state.progress_report,
@@ -372,3 +388,16 @@ class CrewManager:
             current_stage=current_stage,
             error_message=error_message,
         )
+        logger.info(
+            "Workflow result learner_intent=%s workflow_stage=%s "
+            "workflow_completed=%s exit_reason=%s",
+            (
+                response.learner_intent.model_dump_json()
+                if response.learner_intent is not None
+                else "null"
+            ),
+            response.current_stage,
+            response.workflow_completed,
+            error_message or "workflow_completed",
+        )
+        return response

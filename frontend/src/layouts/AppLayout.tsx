@@ -6,7 +6,7 @@ import {
   MessagesSquare,
   TrendingUp,
 } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import { cn } from "@/utils/cn";
 
@@ -21,6 +21,12 @@ const navigationItems = [
 ];
 
 export function AppLayout() {
+  const location = useLocation();
+
+  if (location.pathname === "/") {
+    return <Outlet />;
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
