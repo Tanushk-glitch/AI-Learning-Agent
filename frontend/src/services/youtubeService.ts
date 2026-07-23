@@ -35,9 +35,48 @@ type YouTubeSearchResponse = {
 const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY as
   | string
   | undefined;
+const tutorialCache = new Map<string, YouTubeVideo | null>();
+const tutorialErrors = new Map<string, YouTubeSearchError>();
+const tutorialRequests = new Map<string, Promise<YouTubeVideo | null>>();
 
 export async function searchYouTubeTutorial(
   topic: string
+): Promise<YouTubeVideo | null> {
+  const topicCacheKey = getTopicCacheKey(topic);
+
+  if (tutorialCache.has(topicCacheKey)) {
+    return tutorialCache.get(topicCacheKey) ?? null;
+  }
+  const cachedError = tutorialErrors.get(topicCacheKey);
+  if (cachedError) {
+    throw cachedError;
+  }
+
+  const activeRequest = tutorialRequests.get(topicCacheKey);
+  if (activeRequest) {
+    return activeRequest;
+  }
+
+  const request = fetchYouTubeTutorial(topic, topicCacheKey)
+    .catch((error: unknown) => {
+      const searchError =
+        error instanceof YouTubeSearchError
+          ? error
+          : new YouTubeSearchError("Unable to load YouTube tutorial.");
+      tutorialErrors.set(topicCacheKey, searchError);
+      throw searchError;
+    })
+    .finally(() => {
+      tutorialRequests.delete(topicCacheKey);
+    });
+  tutorialRequests.set(topicCacheKey, request);
+
+  return request;
+}
+
+async function fetchYouTubeTutorial(
+  topic: string,
+  topicCacheKey: string
 ): Promise<YouTubeVideo | null> {
   if (!YOUTUBE_API_KEY) {
     throw new YouTubeSearchError("YouTube API key is not configured.");
@@ -68,16 +107,19 @@ export async function searchYouTubeTutorial(
   const snippet = item?.snippet;
 
   if (!videoId || !snippet?.title || !snippet.channelTitle) {
+    tutorialCache.set(topicCacheKey, null);
     return null;
   }
 
-  return {
+  const video = {
     title: decodeHtmlEntities(snippet.title),
     channel: snippet.channelTitle,
     thumbnailUrl:
       snippet.thumbnails?.medium?.url ?? snippet.thumbnails?.default?.url ?? "",
     videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
   };
+  tutorialCache.set(topicCacheKey, video);
+  return video;
 }
 
 async function getYouTubeErrorMessage(response: Response): Promise<string> {
@@ -96,4 +138,8 @@ async function getYouTubeErrorMessage(response: Response): Promise<string> {
 function decodeHtmlEntities(value: string): string {
   const parser = new DOMParser();
   return parser.parseFromString(value, "text/html").documentElement.textContent ?? value;
+}
+
+function getTopicCacheKey(topic: string): string {
+  return topic.trim().toLowerCase();
 }
