@@ -7,6 +7,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { FeedbackNudgesPage } from "@/pages/FeedbackNudgesPage";
 import { HomePage } from "@/pages/HomePage";
 import { LearningPlanPage } from "@/pages/LearningPlanPage";
+import { OnboardingPage } from "@/pages/OnboardingPage";
 import { ProgressPage } from "@/pages/ProgressPage";
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<HomePage />} />
+        <Route path="onboarding" element={<OnboardingPage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="learning-plan" element={<LearningPlanPage />} />

@@ -20,7 +20,7 @@ export function CTASection() {
         </p>
         <Link
           className={cn(buttonVariants({ size: "large" }), "mt-8")}
-          to="/chat"
+          to="/onboarding"
         >
           Generate My Learning Plan
           <ArrowRight className="h-4 w-4" aria-hidden="true" />

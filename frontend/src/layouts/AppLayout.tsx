@@ -23,7 +23,7 @@ const navigationItems = [
 export function AppLayout() {
   const location = useLocation();
 
-  if (location.pathname === "/") {
+  if (location.pathname === "/" || location.pathname === "/onboarding") {
     return <Outlet />;
   }
 

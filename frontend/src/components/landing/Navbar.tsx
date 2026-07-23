@@ -44,7 +44,7 @@ export function Navbar() {
           ))}
           <Link
             className={cn(buttonVariants(), "ml-3 min-h-10 px-4")}
-            to="/chat"
+            to="/onboarding"
           >
             Get Started
           </Link>
@@ -87,7 +87,7 @@ export function Navbar() {
             <Link
               className={cn(buttonVariants(), "mt-3 w-full")}
               onClick={() => setIsOpen(false)}
-              to="/chat"
+              to="/onboarding"
             >
               Get Started
             </Link>
