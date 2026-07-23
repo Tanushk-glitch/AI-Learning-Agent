@@ -63,6 +63,16 @@ export function SessionProvider({ children }: SessionProviderProps) {
     dispatch({ type: "SESSION_ERROR", payload: message });
   }, []);
 
+  const toggleTopicCompletion = useCallback(
+    (phaseNumber: number, topic: string, completed: boolean) => {
+      dispatch({
+        type: "TOPIC_COMPLETION_TOGGLE",
+        payload: { phaseNumber, topic, completed },
+      });
+    },
+    []
+  );
+
   const clearSession = useCallback(() => {
     dispatch({ type: "SESSION_CLEAR" });
   }, []);
@@ -74,9 +84,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
       saveWorkflow,
       setLoading,
       setError,
+      toggleTopicCompletion,
       clearSession,
     }),
-    [clearSession, saveWorkflow, setError, setLoading, state]
+    [clearSession, saveWorkflow, setError, setLoading, state, toggleTopicCompletion]
   );
 
   return (
@@ -128,6 +139,9 @@ function normalizeStoredSession(value: unknown): SessionState | null {
     progress: value.progress ?? value.progress_report ?? null,
     feedback: value.feedback ?? value.feedback_report ?? null,
     nudges: value.nudges ?? value.nudge_report ?? null,
+    completedTopics: isCompletedTopics(value.completedTopics)
+      ? value.completedTopics
+      : {},
   };
 
   if (!isValidSessionState(candidate)) {
@@ -170,11 +184,21 @@ function isValidSessionState(value: unknown): value is SessionState {
     "progress" in value &&
     "feedback" in value &&
     "nudges" in value &&
+    "completedTopics" in value &&
+    isCompletedTopics(value.completedTopics) &&
     typeof value.workflowCompleted === "boolean" &&
     (typeof value.currentStage === "string" || value.currentStage === null) &&
     typeof value.isLoading === "boolean" &&
     (typeof value.error === "string" || value.error === null)
   );
+}
+
+function isCompletedTopics(value: unknown): value is Record<string, boolean> {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((item) => typeof item === "boolean");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -206,6 +230,7 @@ function isEmptySession(state: SessionState): boolean {
     state.progress === null &&
     state.feedback === null &&
     state.nudges === null &&
+    Object.keys(state.completedTopics).length === 0 &&
     state.workflowCompleted === false &&
     state.currentStage === null &&
     state.error === null

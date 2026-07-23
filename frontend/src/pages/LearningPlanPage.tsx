@@ -1,13 +1,59 @@
 import { CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 import { EmptyPlan } from "@/components/learning-plan/EmptyPlan";
 import { PhaseTimeline } from "@/components/learning-plan/PhaseTimeline";
 import { PlanHeader } from "@/components/learning-plan/PlanHeader";
 import { useSession } from "@/context/SessionContext";
+import {
+  searchYouTubeTutorial,
+  type YouTubeVideo,
+} from "@/services/youtubeService";
+import { getTopicKey } from "@/utils/learningPlan";
 
 export function LearningPlanPage() {
-  const { state } = useSession();
+  const { state, toggleTopicCompletion } = useSession();
   const plan = state.learningPlan;
+  const [videos, setVideos] = useState<Record<string, YouTubeVideo | null>>({});
+  const topicEntries = useMemo(
+    () =>
+      plan?.phases.flatMap((phase) =>
+        phase.recommended_topics.map((topic) => ({
+          key: getTopicKey(phase.phase_number, topic),
+          topic,
+        }))
+      ) ?? [],
+    [plan]
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    const missingTopics = topicEntries.filter((entry) => !(entry.key in videos));
+
+    if (missingTopics.length === 0) {
+      return;
+    }
+
+    void Promise.all(
+      missingTopics.map(async (entry) => {
+        const video = await searchYouTubeTutorial(entry.topic);
+        return { key: entry.key, video };
+      })
+    ).then((results) => {
+      if (!isMounted) {
+        return;
+      }
+
+      setVideos((currentValue) => ({
+        ...currentValue,
+        ...Object.fromEntries(results.map((result) => [result.key, result.video])),
+      }));
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [topicEntries, videos]);
 
   if (!plan) {
     return <EmptyPlan />;
@@ -35,7 +81,13 @@ export function LearningPlanPage() {
         </section>
       ) : null}
 
-      <PhaseTimeline phases={plan.phases} />
+      <PhaseTimeline
+        completedTopics={state.completedTopics}
+        loadingTopics={{}}
+        onToggleTopic={toggleTopicCompletion}
+        phases={plan.phases}
+        videos={videos}
+      />
     </div>
   );
 }

@@ -1,14 +1,32 @@
-import { Clock, ListChecks } from "lucide-react";
+import { Clock } from "lucide-react";
 
 import { MilestoneCard } from "@/components/learning-plan/MilestoneCard";
+import { PhaseProgress } from "@/components/learning-plan/PhaseProgress";
 import { ResourceList } from "@/components/learning-plan/ResourceList";
+import { TopicChecklist } from "@/components/learning-plan/TopicChecklist";
+import type { YouTubeVideo } from "@/services/youtubeService";
 import type { LearningPhase } from "@/types/learning";
+import { getTopicKey } from "@/utils/learningPlan";
 
 type PhaseCardProps = {
+  completedTopics: Record<string, boolean>;
+  loadingTopics: Record<string, boolean>;
+  onToggleTopic: (phaseNumber: number, topic: string, completed: boolean) => void;
   phase: LearningPhase;
+  videos: Record<string, YouTubeVideo | null>;
 };
 
-export function PhaseCard({ phase }: PhaseCardProps) {
+export function PhaseCard({
+  completedTopics,
+  loadingTopics,
+  onToggleTopic,
+  phase,
+  videos,
+}: PhaseCardProps) {
+  const completedTopicCount = phase.recommended_topics.filter(
+    (topic) => completedTopics[getTopicKey(phase.phase_number, topic)]
+  ).length;
+
   return (
     <article className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -31,24 +49,22 @@ export function PhaseCard({ phase }: PhaseCardProps) {
         ) : null}
       </div>
 
-      {phase.recommended_topics.length > 0 ? (
-        <div className="mt-5 rounded-md bg-slate-50 p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <ListChecks className="h-4 w-4 text-slate-500" aria-hidden="true" />
-            <h4 className="text-sm font-semibold text-slate-950">Topics</h4>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {phase.recommended_topics.map((topic) => (
-              <div
-                className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
-                key={topic}
-              >
-                {topic}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      <div className="mt-5">
+        <PhaseProgress
+          completedCount={completedTopicCount}
+          totalCount={phase.recommended_topics.length}
+        />
+      </div>
+
+      <TopicChecklist
+        completedTopics={completedTopics}
+        loadingTopics={loadingTopics}
+        onToggleTopic={onToggleTopic}
+        phaseDuration={phase.estimated_duration}
+        phaseNumber={phase.phase_number}
+        topics={phase.recommended_topics}
+        videos={videos}
+      />
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <MilestoneCard milestones={phase.milestones} />

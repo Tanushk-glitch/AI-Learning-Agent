@@ -1,11 +1,22 @@
 import { PhaseCard } from "@/components/learning-plan/PhaseCard";
+import type { YouTubeVideo } from "@/services/youtubeService";
 import type { LearningPhase } from "@/types/learning";
 
 type PhaseTimelineProps = {
+  completedTopics: Record<string, boolean>;
+  loadingTopics: Record<string, boolean>;
+  onToggleTopic: (phaseNumber: number, topic: string, completed: boolean) => void;
   phases: LearningPhase[];
+  videos: Record<string, YouTubeVideo | null>;
 };
 
-export function PhaseTimeline({ phases }: PhaseTimelineProps) {
+export function PhaseTimeline({
+  completedTopics,
+  loadingTopics,
+  onToggleTopic,
+  phases,
+  videos,
+}: PhaseTimelineProps) {
   if (phases.length === 0) {
     return null;
   }
@@ -23,7 +34,14 @@ export function PhaseTimeline({ phases }: PhaseTimelineProps) {
           .slice()
           .sort((first, second) => first.phase_number - second.phase_number)
           .map((phase) => (
-            <PhaseCard phase={phase} key={`${phase.phase_number}-${phase.title}`} />
+            <PhaseCard
+              completedTopics={completedTopics}
+              key={`${phase.phase_number}-${phase.title}`}
+              loadingTopics={loadingTopics}
+              onToggleTopic={onToggleTopic}
+              phase={phase}
+              videos={videos}
+            />
           ))}
       </div>
     </section>
