@@ -7,6 +7,7 @@ import { PlanHeader } from "@/components/learning-plan/PlanHeader";
 import { useSession } from "@/context/SessionContext";
 import {
   searchYouTubeTutorial,
+  YouTubeSearchError,
   type YouTubeVideo,
 } from "@/services/youtubeService";
 import { getTopicKey } from "@/utils/learningPlan";
@@ -15,6 +16,7 @@ export function LearningPlanPage() {
   const { state, toggleTopicCompletion } = useSession();
   const plan = state.learningPlan;
   const [videos, setVideos] = useState<Record<string, YouTubeVideo | null>>({});
+  const [youtubeError, setYoutubeError] = useState<string | null>(null);
   const topicEntries = useMemo(
     () =>
       plan?.phases.flatMap((phase) =>
@@ -36,19 +38,37 @@ export function LearningPlanPage() {
 
     void Promise.all(
       missingTopics.map(async (entry) => {
-        const video = await searchYouTubeTutorial(entry.topic);
+        const video = await searchYouTubeTutorial(entry.topic).catch((error) => {
+          if (error instanceof YouTubeSearchError) {
+            throw error;
+          }
+          throw new YouTubeSearchError("Unable to load YouTube tutorials.");
+        });
         return { key: entry.key, video };
       })
-    ).then((results) => {
-      if (!isMounted) {
-        return;
-      }
+    )
+      .then((results) => {
+        if (!isMounted) {
+          return;
+        }
 
-      setVideos((currentValue) => ({
-        ...currentValue,
-        ...Object.fromEntries(results.map((result) => [result.key, result.video])),
-      }));
-    });
+        setYoutubeError(null);
+        setVideos((currentValue) => ({
+          ...currentValue,
+          ...Object.fromEntries(results.map((result) => [result.key, result.video])),
+        }));
+      })
+      .catch((error: unknown) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setYoutubeError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load YouTube tutorials."
+        );
+      });
 
     return () => {
       isMounted = false;
@@ -62,6 +82,12 @@ export function LearningPlanPage() {
   return (
     <div className="space-y-6">
       <PlanHeader plan={plan} />
+
+      {youtubeError ? (
+        <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+          {youtubeError}
+        </section>
+      ) : null}
 
       {plan.final_milestone ? (
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">

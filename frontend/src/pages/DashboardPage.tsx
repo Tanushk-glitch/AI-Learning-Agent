@@ -1,15 +1,32 @@
 import { ArrowRight, Inbox } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { connectCalendar, createCalendarEvents } from "@/api/calendarApi";
+import { ConnectCalendarCard } from "@/components/calendar/ConnectCalendarCard";
+import { SchedulePreview } from "@/components/calendar/SchedulePreview";
 import { FeedbackCard } from "@/components/dashboard/FeedbackCard";
 import { NudgeCard } from "@/components/dashboard/NudgeCard";
 import { SummaryCards } from "@/components/dashboard/SummaryCards";
 import { WelcomeCard } from "@/components/dashboard/WelcomeCard";
 import { WorkflowStatus } from "@/components/dashboard/WorkflowStatus";
 import { useSession } from "@/context/SessionContext";
+import {
+  generateStudySchedule,
+  parseDailyStudyHours,
+} from "@/services/calendarService";
+import type { GoogleCodeResponse } from "@/types/googleIdentity";
 
 export function DashboardPage() {
-  const { state } = useSession();
+  const {
+    connectCalendar: saveCalendarConnection,
+    markScheduleCreated,
+    saveGeneratedSchedule,
+    state,
+  } = useSession();
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [isCalendarBusy, setIsCalendarBusy] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const hasActiveSession =
     state.intent !== null ||
     state.learningPlan !== null ||
@@ -58,11 +75,170 @@ export function DashboardPage() {
             currentStage={state.currentStage}
             workflowCompleted={state.workflowCompleted}
           />
+          <ConnectCalendarCard
+            connected={state.calendar.connected}
+            disabled={!state.learningPlan}
+            isBusy={isCalendarBusy}
+            onConnect={() => {
+              void handleConnectCalendar();
+            }}
+            onGenerateSchedule={handleGenerateSchedule}
+            upcomingStudySession={state.upcomingStudySession}
+          />
+          {calendarError ? (
+            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {calendarError}
+            </p>
+          ) : null}
           <NavigationCard />
         </aside>
       </div>
+
+      {isPreviewOpen ? (
+        <SchedulePreview
+          events={state.generatedSchedule}
+          isCreating={isCalendarBusy}
+          onCancel={() => setIsPreviewOpen(false)}
+          onCreate={() => {
+            void handleCreateCalendarEvents();
+          }}
+        />
+      ) : null}
     </div>
   );
+
+  async function handleConnectCalendar() {
+    setCalendarError(null);
+    setIsCalendarBusy(true);
+    try {
+      const code = await requestGoogleAuthorizationCode();
+      const response = await connectCalendar(code);
+      saveCalendarConnection({
+        connected: response.data.connected,
+        connectionId: response.data.connection_id,
+      });
+    } catch (error) {
+      setCalendarError(
+        error instanceof Error
+          ? error.message
+          : "Unable to connect Google Calendar."
+      );
+    } finally {
+      setIsCalendarBusy(false);
+    }
+  }
+
+  function handleGenerateSchedule() {
+    if (!state.learningPlan) {
+      setCalendarError("Generate a learning plan before scheduling sessions.");
+      return;
+    }
+
+    const schedule = generateStudySchedule(state.learningPlan, {
+      dailyStudyHours: parseDailyStudyHours(
+        state.intent?.available_time ?? state.learningPlan.total_available_time
+      ),
+      learningGoal: learningGoal ?? state.learningPlan.learning_goal,
+    });
+    saveGeneratedSchedule(schedule);
+    setIsPreviewOpen(true);
+  }
+
+  async function handleCreateCalendarEvents() {
+    const connectionId = state.calendar.connectionId;
+    if (!connectionId) {
+      setCalendarError("Connect Google Calendar before creating events.");
+      return;
+    }
+
+    setCalendarError(null);
+    setIsCalendarBusy(true);
+    try {
+      await createCalendarEvents(connectionId, state.generatedSchedule);
+      markScheduleCreated(state.generatedSchedule);
+      setIsPreviewOpen(false);
+    } catch (error) {
+      setCalendarError(
+        error instanceof Error
+          ? error.message
+          : "Unable to create Google Calendar events."
+      );
+    } finally {
+      setIsCalendarBusy(false);
+    }
+  }
+
+  async function requestGoogleAuthorizationCode(): Promise<string> {
+    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)
+      ?.trim();
+    if (!clientId) {
+      throw new Error("Google Calendar client ID is not configured.");
+    }
+
+    await loadGoogleIdentityServices();
+
+    return new Promise((resolve, reject) => {
+      const codeClient = window.google?.accounts?.oauth2?.initCodeClient({
+        client_id: clientId,
+        scope: "https://www.googleapis.com/auth/calendar.events",
+        ux_mode: "popup",
+        callback: (response: GoogleCodeResponse) => {
+          if (response.error) {
+            reject(new Error("Google authorization was cancelled or failed."));
+            return;
+          }
+          if (!response.code) {
+            reject(new Error("Google authorization did not return a code."));
+            return;
+          }
+          resolve(response.code);
+        },
+      });
+
+      if (!codeClient) {
+        reject(new Error("Google Identity Services failed to initialize."));
+        return;
+      }
+
+      codeClient.requestCode();
+    });
+  }
+}
+
+function loadGoogleIdentityServices(): Promise<void> {
+  if (window.google?.accounts?.oauth2) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      "script[data-google-identity-services]"
+    );
+    if (existingScript) {
+      if (window.google?.accounts?.oauth2) {
+        resolve();
+        return;
+      }
+
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => reject(new Error("Unable to load Google Identity Services.")),
+        { once: true }
+      );
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.async = true;
+    script.defer = true;
+    script.dataset.googleIdentityServices = "true";
+    script.src = "https://accounts.google.com/gsi/client";
+    script.onload = () => resolve();
+    script.onerror = () =>
+      reject(new Error("Unable to load Google Identity Services."));
+    document.head.appendChild(script);
+  });
 }
 
 function EmptyDashboardState() {

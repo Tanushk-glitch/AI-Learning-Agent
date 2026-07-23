@@ -1,4 +1,8 @@
 import type {
+  CalendarConnection,
+  StudyScheduleEvent,
+} from "@/types/calendar";
+import type {
   FeedbackReport,
   LearnerIntent,
   LearningPlan,
@@ -21,6 +25,9 @@ export type SessionState = {
   isLoading: boolean;
   error: string | null;
   completedTopics: Record<string, boolean>;
+  calendar: CalendarConnection;
+  generatedSchedule: StudyScheduleEvent[];
+  upcomingStudySession: StudyScheduleEvent | null;
 };
 
 export type SessionAction =
@@ -42,6 +49,9 @@ export type SessionAction =
         completed: boolean;
       };
     }
+  | { type: "CALENDAR_CONNECTED"; payload: CalendarConnection }
+  | { type: "SCHEDULE_GENERATED"; payload: StudyScheduleEvent[] }
+  | { type: "SCHEDULE_CREATED"; payload: StudyScheduleEvent[] }
   | { type: "SESSION_CLEAR" };
 
 export type SessionContextValue = {
@@ -55,5 +65,8 @@ export type SessionContextValue = {
     topic: string,
     completed: boolean
   ) => void;
+  connectCalendar: (connection: CalendarConnection) => void;
+  saveGeneratedSchedule: (schedule: StudyScheduleEvent[]) => void;
+  markScheduleCreated: (schedule: StudyScheduleEvent[]) => void;
   clearSession: () => void;
 };

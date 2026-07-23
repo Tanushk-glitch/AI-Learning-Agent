@@ -5,6 +5,13 @@ export type YouTubeVideo = {
   videoUrl: string;
 };
 
+export class YouTubeSearchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "YouTubeSearchError";
+  }
+}
+
 type YouTubeSearchResponse = {
   items?: Array<{
     id?: {
@@ -33,7 +40,7 @@ export async function searchYouTubeTutorial(
   topic: string
 ): Promise<YouTubeVideo | null> {
   if (!YOUTUBE_API_KEY) {
-    return null;
+    throw new YouTubeSearchError("YouTube API key is not configured.");
   }
 
   const params = new URLSearchParams({
@@ -51,7 +58,8 @@ export async function searchYouTubeTutorial(
   );
 
   if (!response.ok) {
-    return null;
+    const message = await getYouTubeErrorMessage(response);
+    throw new YouTubeSearchError(message);
   }
 
   const payload = (await response.json()) as YouTubeSearchResponse;
@@ -70,6 +78,19 @@ export async function searchYouTubeTutorial(
       snippet.thumbnails?.medium?.url ?? snippet.thumbnails?.default?.url ?? "",
     videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
   };
+}
+
+async function getYouTubeErrorMessage(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as {
+      error?: { message?: string; status?: string };
+    };
+    return payload.error?.message
+      ? `YouTube API error: ${payload.error.message}`
+      : `YouTube API request failed with status ${response.status}.`;
+  } catch {
+    return `YouTube API request failed with status ${response.status}.`;
+  }
 }
 
 function decodeHtmlEntities(value: string): string {

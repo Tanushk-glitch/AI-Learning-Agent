@@ -20,6 +20,12 @@ export const initialSessionState: SessionState = {
   isLoading: false,
   error: null,
   completedTopics: {},
+  calendar: {
+    connected: false,
+    connectionId: null,
+  },
+  generatedSchedule: [],
+  upcomingStudySession: null,
 };
 
 export function sessionReducer(
@@ -62,6 +68,9 @@ export function sessionReducer(
         isLoading: false,
         error: action.payload.workflow.error_message,
         completedTopics: {},
+        calendar: state.calendar,
+        generatedSchedule: state.generatedSchedule,
+        upcomingStudySession: state.upcomingStudySession,
       };
     case "SESSION_ERROR":
       return {
@@ -76,6 +85,22 @@ export function sessionReducer(
       };
     case "TOPIC_COMPLETION_TOGGLE":
       return updateTopicCompletion(state, action.payload);
+    case "CALENDAR_CONNECTED":
+      return {
+        ...state,
+        calendar: action.payload,
+      };
+    case "SCHEDULE_GENERATED":
+      return {
+        ...state,
+        generatedSchedule: action.payload,
+      };
+    case "SCHEDULE_CREATED":
+      return {
+        ...state,
+        generatedSchedule: [],
+        upcomingStudySession: action.payload[0] ?? null,
+      };
     case "SESSION_CLEAR":
       return initialSessionState;
     default:

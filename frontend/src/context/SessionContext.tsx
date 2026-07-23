@@ -17,6 +17,7 @@ import type {
   SessionContextValue,
   SessionState,
 } from "@/context/sessionTypes";
+import type { CalendarConnection, StudyScheduleEvent } from "@/types/calendar";
 import type { LearningPlan, LearningSessionResponse, User } from "@/types/learning";
 
 const SESSION_STORAGE_KEY = "ai-learning-agent-session";
@@ -77,6 +78,18 @@ export function SessionProvider({ children }: SessionProviderProps) {
     dispatch({ type: "SESSION_CLEAR" });
   }, []);
 
+  const connectCalendar = useCallback((connection: CalendarConnection) => {
+    dispatch({ type: "CALENDAR_CONNECTED", payload: connection });
+  }, []);
+
+  const saveGeneratedSchedule = useCallback((schedule: StudyScheduleEvent[]) => {
+    dispatch({ type: "SCHEDULE_GENERATED", payload: schedule });
+  }, []);
+
+  const markScheduleCreated = useCallback((schedule: StudyScheduleEvent[]) => {
+    dispatch({ type: "SCHEDULE_CREATED", payload: schedule });
+  }, []);
+
   const value = useMemo<SessionContextValue>(
     () => ({
       state,
@@ -86,8 +99,21 @@ export function SessionProvider({ children }: SessionProviderProps) {
       setError,
       toggleTopicCompletion,
       clearSession,
+      connectCalendar,
+      saveGeneratedSchedule,
+      markScheduleCreated,
     }),
-    [clearSession, saveWorkflow, setError, setLoading, state, toggleTopicCompletion]
+    [
+      clearSession,
+      connectCalendar,
+      markScheduleCreated,
+      saveGeneratedSchedule,
+      saveWorkflow,
+      setError,
+      setLoading,
+      state,
+      toggleTopicCompletion,
+    ]
   );
 
   return (
@@ -142,6 +168,15 @@ function normalizeStoredSession(value: unknown): SessionState | null {
     completedTopics: isCompletedTopics(value.completedTopics)
       ? value.completedTopics
       : {},
+    calendar: isCalendarConnection(value.calendar)
+      ? value.calendar
+      : { connected: false, connectionId: null },
+    generatedSchedule: Array.isArray(value.generatedSchedule)
+      ? value.generatedSchedule.filter(isStudyScheduleEvent)
+      : [],
+    upcomingStudySession: isStudyScheduleEvent(value.upcomingStudySession)
+      ? value.upcomingStudySession
+      : null,
   };
 
   if (!isValidSessionState(candidate)) {
@@ -186,10 +221,40 @@ function isValidSessionState(value: unknown): value is SessionState {
     "nudges" in value &&
     "completedTopics" in value &&
     isCompletedTopics(value.completedTopics) &&
+    "calendar" in value &&
+    isCalendarConnection(value.calendar) &&
+    "generatedSchedule" in value &&
+    Array.isArray(value.generatedSchedule) &&
+    value.generatedSchedule.every(isStudyScheduleEvent) &&
+    "upcomingStudySession" in value &&
+    (value.upcomingStudySession === null ||
+      isStudyScheduleEvent(value.upcomingStudySession)) &&
     typeof value.workflowCompleted === "boolean" &&
     (typeof value.currentStage === "string" || value.currentStage === null) &&
     typeof value.isLoading === "boolean" &&
     (typeof value.error === "string" || value.error === null)
+  );
+}
+
+function isCalendarConnection(value: unknown): value is CalendarConnection {
+  return (
+    isRecord(value) &&
+    typeof value.connected === "boolean" &&
+    (typeof value.connectionId === "string" || value.connectionId === null)
+  );
+}
+
+function isStudyScheduleEvent(value: unknown): value is StudyScheduleEvent {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.date === "string" &&
+    typeof value.start === "string" &&
+    typeof value.end === "string" &&
+    typeof value.topic === "string" &&
+    typeof value.phase === "string" &&
+    typeof value.durationMinutes === "number" &&
+    typeof value.description === "string"
   );
 }
 
@@ -231,6 +296,9 @@ function isEmptySession(state: SessionState): boolean {
     state.feedback === null &&
     state.nudges === null &&
     Object.keys(state.completedTopics).length === 0 &&
+    state.calendar.connected === false &&
+    state.generatedSchedule.length === 0 &&
+    state.upcomingStudySession === null &&
     state.workflowCompleted === false &&
     state.currentStage === null &&
     state.error === null
