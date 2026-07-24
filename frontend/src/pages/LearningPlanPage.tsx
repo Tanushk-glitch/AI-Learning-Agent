@@ -147,6 +147,9 @@ export function LearningPlanPage() {
 
     return () => {
       isMounted = false;
+      uniqueMissingTopics.forEach((entry) => {
+        requestedTopicsRef.current.delete(entry.topicCacheKey);
+      });
     };
   }, [planKey, topicEntries]);
 
