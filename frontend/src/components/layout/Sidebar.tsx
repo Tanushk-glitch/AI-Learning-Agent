@@ -1,5 +1,4 @@
 import {
-  Bell,
   BookOpen,
   LayoutDashboard,
   MessageCircle,
@@ -14,8 +13,11 @@ const sidebarItems = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { label: "Learning Plan", to: "/learning-plan", icon: BookOpen },
   { label: "Progress", to: "/progress", icon: TrendingUp },
-  { label: "Feedback", to: "/feedback", icon: MessageCircle },
-  { label: "Nudges", to: "/feedback", activePath: "/nudges", icon: Bell },
+  {
+    label: "Feedback and Nudges",
+    to: "/feedback",
+    icon: MessageCircle,
+  },
 ];
 
 type SidebarProps = {
@@ -29,7 +31,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <Link
           className="group flex items-center gap-3 rounded-2xl px-2 py-2 transition hover:bg-white/5"
           onClick={onNavigate}
-          to="/dashboard"
+          to="/"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-500 text-base font-black text-white shadow-lg shadow-blue-950/40">
             S
@@ -52,7 +54,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             key={`${item.label}-${item.to}`}
             label={item.label}
             onClick={onNavigate}
-            activePath={item.activePath}
             to={item.to}
           />
         ))}

@@ -25,6 +25,10 @@ from backend.schemas.learning_session import LearningSessionResponse
 from backend.schemas.nudge import NudgeReport
 from backend.schemas.planner import LearningPlan
 from backend.schemas.progress import LearnerProgress, ProgressReport
+from backend.services.planner_scheduling_service import (
+    schedule_learning_plan,
+    validate_planning_feasibility,
+)
 
 
 if TYPE_CHECKING:
@@ -104,6 +108,7 @@ class CrewManager:
                     ),
                 )
 
+            validate_planning_feasibility(state.learner_intent)
             self._persist_intent(user_id, state)
             self._run_planner_stage(state)
             self._persist_learning_plan(user_id, state)
@@ -166,7 +171,11 @@ class CrewManager:
 
         state.current_stage = "planner"
         logger.info("Running Planner Agent")
-        state.learning_plan = self.learning_crew.run_planner(state.learner_intent)
+        planner_output = self.learning_crew.run_planner(state.learner_intent)
+        state.learning_plan = schedule_learning_plan(
+            planner_output,
+            state.learner_intent,
+        )
         self._log_stage_output("planner", state.learning_plan)
         logger.info("Planner Completed")
 

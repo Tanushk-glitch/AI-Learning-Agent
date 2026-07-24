@@ -1,4 +1,4 @@
-import { Clock } from "lucide-react";
+import { CalendarDays, Clock } from "lucide-react";
 
 import { MilestoneCard } from "@/components/learning-plan/MilestoneCard";
 import { PhaseProgress } from "@/components/learning-plan/PhaseProgress";
@@ -42,10 +42,19 @@ export function PhaseCard({
           </p>
         </div>
         {phase.estimated_duration ? (
-          <span className="inline-flex w-fit items-center gap-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700">
-            <Clock className="h-4 w-4" aria-hidden="true" />
-            {phase.estimated_duration}
-          </span>
+          <div className="flex w-fit flex-col items-start gap-1.5 sm:items-end">
+            <span className="inline-flex items-center gap-2 rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700">
+              <Clock className="h-4 w-4" aria-hidden="true" />
+              {phase.estimated_duration}
+            </span>
+            {phase.start_date && phase.end_date ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                {formatPhaseDate(phase.start_date)} -{" "}
+                {formatPhaseDate(phase.end_date)}
+              </span>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -72,4 +81,12 @@ export function PhaseCard({
       </div>
     </article>
   );
+}
+
+function formatPhaseDate(value: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
 }

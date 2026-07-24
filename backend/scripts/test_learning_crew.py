@@ -110,7 +110,7 @@ def _run_with_rate_limit_retry(user_request: str) -> LearningSessionResponse:
 def _print_response(response: LearningSessionResponse) -> None:
     """Print the final response as formatted JSON."""
 
-    print(json.dumps(response.model_dump(), indent=2))
+    print(json.dumps(response.model_dump(mode="json"), indent=2))
 
 
 def _run_scenario(name: str, user_request: str) -> LearningSessionResponse:

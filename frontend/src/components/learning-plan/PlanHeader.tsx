@@ -47,10 +47,10 @@ export function PlanHeader({ plan }: PlanHeaderProps) {
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <PlanMeta label="Subject" value={plan.subject} />
         <PlanMeta label="Skill Level" value={plan.learner_level} />
-        <PlanMeta label="Target Timeline" value={plan.target_deadline} />
+        <PlanMeta label="Target Completion" value={plan.target_deadline} />
         <PlanMeta
           icon={<CalendarDays className="h-4 w-4" aria-hidden="true" />}
-          label="Estimated Duration"
+          label="Daily Study Time"
           value={plan.total_available_time}
         />
       </div>
