@@ -1,13 +1,157 @@
 import { CheckCircle2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { EmptyPlan } from "@/components/learning-plan/EmptyPlan";
 import { PhaseTimeline } from "@/components/learning-plan/PhaseTimeline";
 import { PlanHeader } from "@/components/learning-plan/PlanHeader";
 import { useSession } from "@/context/SessionContext";
+import {
+  searchYouTubeTutorial,
+  YouTubeSearchError,
+  type YouTubeVideo,
+} from "@/services/youtubeService";
+import { getTopicKey } from "@/utils/learningPlan";
 
 export function LearningPlanPage() {
-  const { state } = useSession();
+  const { state, toggleTopicCompletion } = useSession();
   const plan = state.learningPlan;
+  const [videos, setVideos] = useState<Record<string, YouTubeVideo | null>>({});
+  const [loadingTopics, setLoadingTopics] = useState<Record<string, boolean>>({});
+  const [youtubeError, setYoutubeError] = useState<string | null>(null);
+  const fetchedTopicsRef = useRef<Record<string, YouTubeVideo | null>>({});
+  const requestedTopicsRef = useRef<Set<string>>(new Set());
+  const activePlanKeyRef = useRef<string | null>(null);
+  const planKey = useMemo(
+    () =>
+      plan
+        ? JSON.stringify({
+            goal: plan.learning_goal,
+            phases: plan.phases.map((phase) => ({
+              phase: phase.phase_number,
+              topics: phase.recommended_topics,
+            })),
+          })
+        : null,
+    [plan]
+  );
+  const topicEntries = useMemo(
+    () =>
+      plan?.phases.flatMap((phase) =>
+        phase.recommended_topics.map((topic) => ({
+          key: getTopicKey(phase.phase_number, topic),
+          topic,
+          topicCacheKey: getTopicCacheKey(topic),
+        }))
+      ) ?? [],
+    [plan]
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!planKey) {
+      return;
+    }
+
+    if (activePlanKeyRef.current !== planKey) {
+      activePlanKeyRef.current = planKey;
+      requestedTopicsRef.current = new Set();
+      fetchedTopicsRef.current = {};
+    }
+
+    const uniqueMissingTopics = Array.from(
+      new Map(
+        topicEntries
+          .filter(
+            (entry) =>
+              !(entry.topicCacheKey in fetchedTopicsRef.current) &&
+              !requestedTopicsRef.current.has(entry.topicCacheKey)
+          )
+          .map((entry) => [entry.topicCacheKey, entry])
+      ).values()
+    );
+
+    if (uniqueMissingTopics.length === 0) {
+      return;
+    }
+
+    uniqueMissingTopics.forEach((entry) => {
+      requestedTopicsRef.current.add(entry.topicCacheKey);
+    });
+    void Promise.resolve().then(() => {
+      if (!isMounted) {
+        return;
+      }
+
+      setLoadingTopics((currentValue) => ({
+        ...currentValue,
+        ...Object.fromEntries(
+          uniqueMissingTopics.map((entry) => [entry.key, true])
+        ),
+      }));
+    });
+
+    void Promise.allSettled(
+      uniqueMissingTopics.map(async (entry) => {
+        const video = await searchYouTubeTutorial(entry.topic).catch((error) => {
+          if (error instanceof YouTubeSearchError) {
+            throw error;
+          }
+          throw new YouTubeSearchError("Unable to load YouTube tutorials.");
+        });
+        return { topicCacheKey: entry.topicCacheKey, video };
+      })
+    )
+      .then((settledResults) => {
+        if (!isMounted) {
+          return;
+        }
+
+        const failures: string[] = [];
+        settledResults.forEach((result, index) => {
+          const topic = uniqueMissingTopics[index];
+          if (result.status === "fulfilled") {
+            fetchedTopicsRef.current[topic.topicCacheKey] = result.value.video;
+            return;
+          }
+
+          fetchedTopicsRef.current[topic.topicCacheKey] = null;
+          failures.push(
+            result.reason instanceof Error
+              ? `${topic.topic}: ${result.reason.message}`
+              : `${topic.topic}: Unable to load YouTube tutorial.`
+          );
+        });
+
+        setYoutubeError(
+          failures.length > 0
+            ? `Some YouTube tutorials could not be loaded. ${failures.join(" ")}`
+            : null
+        );
+        setVideos((currentValue) => ({
+          ...currentValue,
+          ...Object.fromEntries(
+            topicEntries.map((entry) => [
+              entry.key,
+              fetchedTopicsRef.current[entry.topicCacheKey] ?? null,
+            ])
+          ),
+        }));
+        setLoadingTopics((currentValue) => ({
+          ...currentValue,
+          ...Object.fromEntries(
+            uniqueMissingTopics.map((entry) => [entry.key, false])
+          ),
+        }));
+      });
+
+    return () => {
+      isMounted = false;
+      uniqueMissingTopics.forEach((entry) => {
+        requestedTopicsRef.current.delete(entry.topicCacheKey);
+      });
+    };
+  }, [planKey, topicEntries]);
 
   if (!plan) {
     return <EmptyPlan />;
@@ -16,6 +160,12 @@ export function LearningPlanPage() {
   return (
     <div className="space-y-6">
       <PlanHeader plan={plan} />
+
+      {youtubeError ? (
+        <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">
+          {youtubeError}
+        </section>
+      ) : null}
 
       {plan.final_milestone ? (
         <section className="rounded-md border border-slate-200 bg-white p-5 shadow-sm">
@@ -35,7 +185,17 @@ export function LearningPlanPage() {
         </section>
       ) : null}
 
-      <PhaseTimeline phases={plan.phases} />
+      <PhaseTimeline
+        completedTopics={state.completedTopics}
+        loadingTopics={loadingTopics}
+        onToggleTopic={toggleTopicCompletion}
+        phases={plan.phases}
+        videos={videos}
+      />
     </div>
   );
+}
+
+function getTopicCacheKey(topic: string): string {
+  return topic.trim().toLowerCase();
 }

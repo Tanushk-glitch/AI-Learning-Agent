@@ -28,6 +28,9 @@ export type LearningPhase = {
   objective: string;
   recommended_topics: string[];
   estimated_duration: string;
+  duration_days?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
   milestones: string[];
   suggested_resource_categories: string[];
 };

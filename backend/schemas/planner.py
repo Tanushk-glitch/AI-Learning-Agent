@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from pydantic import BaseModel, Field
 
 
@@ -25,7 +27,20 @@ class LearningPhase(BaseModel):
     )
     estimated_duration: str = Field(
         ...,
-        description="Estimated time needed for this phase.",
+        description="Backend-calculated time allocated to this phase.",
+    )
+    duration_days: int | None = Field(
+        default=None,
+        ge=1,
+        description="Exact backend-calculated number of days in this phase.",
+    )
+    start_date: date | None = Field(
+        default=None,
+        description="Backend-calculated inclusive phase start date.",
+    )
+    end_date: date | None = Field(
+        default=None,
+        description="Backend-calculated inclusive phase end date.",
     )
     milestones: list[str] = Field(
         ...,

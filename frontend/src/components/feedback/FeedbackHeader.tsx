@@ -21,11 +21,9 @@ export function FeedbackHeader({
           <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-md bg-slate-900 text-white">
             <MessageCircle className="h-5 w-5" aria-hidden="true" />
           </div>
-          <p className="text-sm font-medium text-slate-500">
-            Feedback & Nudges
-          </p>
+          <p className="text-sm font-medium text-slate-500">AI Study Coach</p>
           <h1 className="mt-2 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">
-            Your AI study coach
+            Feedback and Nudges
           </h1>
           {goal ? (
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">

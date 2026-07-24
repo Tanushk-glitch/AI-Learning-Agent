@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from backend.api.routes import chat, health, learning, root
+from backend.api.routes import calendar, chat, health, learning, quiz, root
 
 
 api_router = APIRouter()
@@ -12,3 +12,5 @@ api_router.include_router(root.router)
 api_router.include_router(health.router)
 api_router.include_router(chat.router)
 api_router.include_router(learning.router)
+api_router.include_router(calendar.router)
+api_router.include_router(quiz.router)

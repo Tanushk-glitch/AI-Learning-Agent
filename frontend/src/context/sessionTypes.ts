@@ -1,4 +1,8 @@
 import type {
+  CalendarConnection,
+  StudyScheduleEvent,
+} from "@/types/calendar";
+import type {
   FeedbackReport,
   LearnerIntent,
   LearningPlan,
@@ -20,6 +24,10 @@ export type SessionState = {
   currentStage: string | null;
   isLoading: boolean;
   error: string | null;
+  completedTopics: Record<string, boolean>;
+  calendar: CalendarConnection;
+  generatedSchedule: StudyScheduleEvent[];
+  upcomingStudySession: StudyScheduleEvent | null;
 };
 
 export type SessionAction =
@@ -33,6 +41,17 @@ export type SessionAction =
     }
   | { type: "SESSION_ERROR"; payload: string }
   | { type: "SESSION_RESTORE"; payload: SessionState }
+  | {
+      type: "TOPIC_COMPLETION_TOGGLE";
+      payload: {
+        phaseNumber: number;
+        topic: string;
+        completed: boolean;
+      };
+    }
+  | { type: "CALENDAR_CONNECTED"; payload: CalendarConnection }
+  | { type: "SCHEDULE_GENERATED"; payload: StudyScheduleEvent[] }
+  | { type: "SCHEDULE_CREATED"; payload: StudyScheduleEvent[] }
   | { type: "SESSION_CLEAR" };
 
 export type SessionContextValue = {
@@ -41,5 +60,13 @@ export type SessionContextValue = {
   saveWorkflow: (workflow: LearningSessionResponse, user?: User | null) => void;
   setLoading: () => void;
   setError: (message: string) => void;
+  toggleTopicCompletion: (
+    phaseNumber: number,
+    topic: string,
+    completed: boolean
+  ) => void;
+  connectCalendar: (connection: CalendarConnection) => void;
+  saveGeneratedSchedule: (schedule: StudyScheduleEvent[]) => void;
+  markScheduleCreated: (schedule: StudyScheduleEvent[]) => void;
   clearSession: () => void;
 };

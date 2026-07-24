@@ -37,7 +37,7 @@ export function Hero() {
         <div className="mt-6 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
           <Link
             className={cn(buttonVariants({ size: "large" }), "w-full sm:w-auto")}
-            to="/chat"
+            to="/onboarding"
           >
             Get Started
             <ArrowRight className="h-4 w-4" aria-hidden="true" />

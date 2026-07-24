@@ -17,6 +17,7 @@ import type {
   SessionContextValue,
   SessionState,
 } from "@/context/sessionTypes";
+import type { CalendarConnection, StudyScheduleEvent } from "@/types/calendar";
 import type { LearningPlan, LearningSessionResponse, User } from "@/types/learning";
 
 const SESSION_STORAGE_KEY = "ai-learning-agent-session";
@@ -63,8 +64,30 @@ export function SessionProvider({ children }: SessionProviderProps) {
     dispatch({ type: "SESSION_ERROR", payload: message });
   }, []);
 
+  const toggleTopicCompletion = useCallback(
+    (phaseNumber: number, topic: string, completed: boolean) => {
+      dispatch({
+        type: "TOPIC_COMPLETION_TOGGLE",
+        payload: { phaseNumber, topic, completed },
+      });
+    },
+    []
+  );
+
   const clearSession = useCallback(() => {
     dispatch({ type: "SESSION_CLEAR" });
+  }, []);
+
+  const connectCalendar = useCallback((connection: CalendarConnection) => {
+    dispatch({ type: "CALENDAR_CONNECTED", payload: connection });
+  }, []);
+
+  const saveGeneratedSchedule = useCallback((schedule: StudyScheduleEvent[]) => {
+    dispatch({ type: "SCHEDULE_GENERATED", payload: schedule });
+  }, []);
+
+  const markScheduleCreated = useCallback((schedule: StudyScheduleEvent[]) => {
+    dispatch({ type: "SCHEDULE_CREATED", payload: schedule });
   }, []);
 
   const value = useMemo<SessionContextValue>(
@@ -74,9 +97,23 @@ export function SessionProvider({ children }: SessionProviderProps) {
       saveWorkflow,
       setLoading,
       setError,
+      toggleTopicCompletion,
       clearSession,
+      connectCalendar,
+      saveGeneratedSchedule,
+      markScheduleCreated,
     }),
-    [clearSession, saveWorkflow, setError, setLoading, state]
+    [
+      clearSession,
+      connectCalendar,
+      markScheduleCreated,
+      saveGeneratedSchedule,
+      saveWorkflow,
+      setError,
+      setLoading,
+      state,
+      toggleTopicCompletion,
+    ]
   );
 
   return (
@@ -128,6 +165,18 @@ function normalizeStoredSession(value: unknown): SessionState | null {
     progress: value.progress ?? value.progress_report ?? null,
     feedback: value.feedback ?? value.feedback_report ?? null,
     nudges: value.nudges ?? value.nudge_report ?? null,
+    completedTopics: isCompletedTopics(value.completedTopics)
+      ? value.completedTopics
+      : {},
+    calendar: isCalendarConnection(value.calendar)
+      ? value.calendar
+      : { connected: false, connectionId: null },
+    generatedSchedule: Array.isArray(value.generatedSchedule)
+      ? value.generatedSchedule.filter(isStudyScheduleEvent)
+      : [],
+    upcomingStudySession: isStudyScheduleEvent(value.upcomingStudySession)
+      ? value.upcomingStudySession
+      : null,
   };
 
   if (!isValidSessionState(candidate)) {
@@ -170,11 +219,51 @@ function isValidSessionState(value: unknown): value is SessionState {
     "progress" in value &&
     "feedback" in value &&
     "nudges" in value &&
+    "completedTopics" in value &&
+    isCompletedTopics(value.completedTopics) &&
+    "calendar" in value &&
+    isCalendarConnection(value.calendar) &&
+    "generatedSchedule" in value &&
+    Array.isArray(value.generatedSchedule) &&
+    value.generatedSchedule.every(isStudyScheduleEvent) &&
+    "upcomingStudySession" in value &&
+    (value.upcomingStudySession === null ||
+      isStudyScheduleEvent(value.upcomingStudySession)) &&
     typeof value.workflowCompleted === "boolean" &&
     (typeof value.currentStage === "string" || value.currentStage === null) &&
     typeof value.isLoading === "boolean" &&
     (typeof value.error === "string" || value.error === null)
   );
+}
+
+function isCalendarConnection(value: unknown): value is CalendarConnection {
+  return (
+    isRecord(value) &&
+    typeof value.connected === "boolean" &&
+    (typeof value.connectionId === "string" || value.connectionId === null)
+  );
+}
+
+function isStudyScheduleEvent(value: unknown): value is StudyScheduleEvent {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.date === "string" &&
+    typeof value.start === "string" &&
+    typeof value.end === "string" &&
+    typeof value.topic === "string" &&
+    typeof value.phase === "string" &&
+    typeof value.durationMinutes === "number" &&
+    typeof value.description === "string"
+  );
+}
+
+function isCompletedTopics(value: unknown): value is Record<string, boolean> {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return Object.values(value).every((item) => typeof item === "boolean");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -206,6 +295,10 @@ function isEmptySession(state: SessionState): boolean {
     state.progress === null &&
     state.feedback === null &&
     state.nudges === null &&
+    Object.keys(state.completedTopics).length === 0 &&
+    state.calendar.connected === false &&
+    state.generatedSchedule.length === 0 &&
+    state.upcomingStudySession === null &&
     state.workflowCompleted === false &&
     state.currentStage === null &&
     state.error === null
