@@ -15,18 +15,17 @@ from backend.services.quiz_service import (
 )
 
 
-class _FakeOpenRouterClient:
+class _FakeGeminiLLM:
     def __init__(self, content: str) -> None:
         self.content = content
 
-    def create_json_completion(
+    def call(
         self,
+        messages: str,
         *,
-        system_prompt: str,
-        user_prompt: str,
-        temperature: float = 0.2,
-    ) -> str:
-        del system_prompt, user_prompt, temperature
+        response_model: type[object] | None = None,
+    ) -> object:
+        del messages, response_model
         return self.content
 
 
@@ -54,7 +53,7 @@ def main() -> int:
             ]
         }
     )
-    service = QuizService(client=_FakeOpenRouterClient(content))  # type: ignore[arg-type]
+    service = QuizService(llm=_FakeGeminiLLM(content))  # type: ignore[arg-type]
     quiz = service.generate_quiz(generation_request)
     result = service.submit_quiz(
         QuizSubmissionRequest(
@@ -78,7 +77,7 @@ def main() -> int:
 
 def _invalid_json_is_rejected(request: QuizGenerationRequest) -> bool:
     service = QuizService(
-        client=_FakeOpenRouterClient("not valid json")  # type: ignore[arg-type]
+        llm=_FakeGeminiLLM("not valid json")  # type: ignore[arg-type]
     )
     try:
         service.generate_quiz(request)

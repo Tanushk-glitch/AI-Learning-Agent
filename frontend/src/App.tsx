@@ -9,6 +9,7 @@ import { HomePage } from "@/pages/HomePage";
 import { LearningPlanPage } from "@/pages/LearningPlanPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { ProgressPage } from "@/pages/ProgressPage";
+import { QuizPage } from "@/pages/QuizPage";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="learning-plan" element={<LearningPlanPage />} />
         <Route path="progress" element={<ProgressPage />} />
+        <Route path="quiz" element={<QuizPage />} />
         <Route path="feedback" element={<FeedbackNudgesPage />} />
         <Route path="api-test" element={<ApiTestPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -14,10 +14,7 @@ from backend.schemas.quiz import (
     QuizSubmissionRequest,
     QuizSubmissionResponse,
 )
-from backend.services.openrouter_service import (
-    OpenRouterConfigurationError,
-    OpenRouterResponseError,
-)
+from backend.agents.base_agent import TransientLLMError
 from backend.services.quiz_service import InvalidQuizResponseError, QuizService
 
 
@@ -30,15 +27,15 @@ router = APIRouter(prefix="/quiz", tags=["quiz"])
     response_model=SuccessResponse[QuizGenerationResponse],
     status_code=status.HTTP_200_OK,
     summary="Generate a quiz",
-    description="Generate a validated multiple-choice quiz with OpenRouter.",
+    description="Generate a validated multiple-choice quiz with Gemini.",
     responses={
         status.HTTP_502_BAD_GATEWAY: {
             "model": ErrorResponse,
-            "description": "OpenRouter returned an invalid or failed response.",
+            "description": "Gemini returned an invalid quiz response.",
         },
         status.HTTP_503_SERVICE_UNAVAILABLE: {
             "model": ErrorResponse,
-            "description": "OpenRouter is not configured.",
+            "description": "Gemini is unavailable or not configured.",
         },
     },
 )
@@ -50,22 +47,31 @@ async def generate_quiz(
     service = QuizService()
     try:
         quiz = await run_in_threadpool(service.generate_quiz, request)
-    except OpenRouterConfigurationError as exc:
-        logger.warning("Quiz generation is not configured: %s", exc)
+    except TransientLLMError as exc:
+        logger.warning("Gemini quiz generation is temporarily unavailable: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={
-                "message": str(exc),
-                "error_code": "openrouter_not_configured",
+                "message": "Gemini is temporarily unavailable.",
+                "error_code": "gemini_unavailable",
             },
         ) from exc
-    except (OpenRouterResponseError, InvalidQuizResponseError) as exc:
+    except InvalidQuizResponseError as exc:
         logger.warning("Quiz generation failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={
                 "message": str(exc),
                 "error_code": "quiz_generation_failed",
+            },
+        ) from exc
+    except RuntimeError as exc:
+        logger.warning("Gemini quiz generation is not configured: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "message": str(exc),
+                "error_code": "gemini_not_configured",
             },
         ) from exc
     except Exception as exc:
@@ -94,7 +100,7 @@ async def generate_quiz(
 async def submit_quiz(
     request: QuizSubmissionRequest,
 ) -> SuccessResponse[QuizSubmissionResponse]:
-    """Score selected answers without calling OpenRouter or CrewAI."""
+    """Score selected answers without calling Gemini or CrewAI."""
 
     result = await run_in_threadpool(QuizService().submit_quiz, request)
     return SuccessResponse(
