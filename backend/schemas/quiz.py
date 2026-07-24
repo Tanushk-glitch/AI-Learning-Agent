@@ -51,7 +51,7 @@ class QuizQuestion(BaseModel):
 class QuizGenerationRequest(BaseModel):
     """Quiz generation parameters."""
 
-    topics: list[str] = Field(..., min_length=1, max_length=20)
+    topics: list[str] = Field(..., min_length=1, max_length=50)
     difficulty: QuizDifficulty
     number_of_questions: int = Field(..., ge=1, le=20)
 

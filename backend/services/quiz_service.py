@@ -1,11 +1,14 @@
-"""OpenRouter-backed quiz generation and deterministic scoring."""
+"""Gemini-backed quiz generation and deterministic scoring."""
 
 from __future__ import annotations
 
 import json
+from typing import Protocol
 
 from pydantic import BaseModel, ValidationError
 
+from backend.agents.base_agent import run_with_gemini_retry
+from backend.core.llm import get_gemini_llm
 from backend.schemas.quiz import (
     QuizGenerationRequest,
     QuizGenerationResponse,
@@ -14,7 +17,6 @@ from backend.schemas.quiz import (
     QuizSubmissionRequest,
     QuizSubmissionResponse,
 )
-from backend.services.openrouter_service import OpenRouterClient
 
 
 SYSTEM_PROMPT = """You generate educational multiple-choice quizzes.
@@ -35,11 +37,23 @@ class _GeneratedQuestions(BaseModel):
     questions: list[QuizQuestion]
 
 
-class QuizService:
-    """Generate quizzes with OpenRouter and score them in backend code."""
+class QuizLLM(Protocol):
+    """Minimal shared LLM interface required by the Quiz service."""
 
-    def __init__(self, client: OpenRouterClient | None = None) -> None:
-        self.client = client
+    def call(
+        self,
+        messages: str,
+        *,
+        response_model: type[BaseModel] | None = None,
+    ) -> object:
+        """Generate one completion."""
+
+
+class QuizService:
+    """Generate quizzes with shared Gemini infrastructure and score locally."""
+
+    def __init__(self, llm: QuizLLM | None = None) -> None:
+        self.llm = llm
 
     def generate_quiz(
         self,
@@ -66,28 +80,25 @@ Return this exact JSON shape:
 
 The questions array must contain exactly {request.number_of_questions} items."""
 
-        client = self.client or OpenRouterClient()
-        content = client.create_json_completion(
-            system_prompt=SYSTEM_PROMPT,
-            user_prompt=user_prompt,
+        prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+        llm = self.llm or get_gemini_llm()
+        response = run_with_gemini_retry(
+            "Quiz Generator",
+            lambda: llm.call(
+                prompt,
+                response_model=_GeneratedQuestions,
+            ),
+            prompt=prompt,
         )
-        try:
-            payload = json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise InvalidQuizResponseError(
-                "OpenRouter returned invalid quiz JSON."
-            ) from exc
 
-        try:
-            generated = _GeneratedQuestions.model_validate(payload)
-        except ValidationError as exc:
-            raise InvalidQuizResponseError(
-                "OpenRouter returned quiz data that failed validation."
-            ) from exc
+        if isinstance(response, _GeneratedQuestions):
+            generated = response
+        else:
+            generated = self._parse_generated_questions(response)
 
         if len(generated.questions) != request.number_of_questions:
             raise InvalidQuizResponseError(
-                "OpenRouter returned an unexpected number of quiz questions."
+                "Gemini returned an unexpected number of quiz questions."
             )
 
         return QuizGenerationResponse(
@@ -95,6 +106,26 @@ The questions array must contain exactly {request.number_of_questions} items."""
             difficulty=request.difficulty,
             questions=generated.questions,
         )
+
+    def _parse_generated_questions(self, response: object) -> _GeneratedQuestions:
+        """Validate a Gemini JSON response with the quiz Pydantic model."""
+
+        if isinstance(response, str):
+            try:
+                payload = json.loads(response)
+            except json.JSONDecodeError as exc:
+                raise InvalidQuizResponseError(
+                    "Gemini returned invalid quiz JSON."
+                ) from exc
+        else:
+            payload = response
+
+        try:
+            return _GeneratedQuestions.model_validate(payload)
+        except ValidationError as exc:
+            raise InvalidQuizResponseError(
+                "Gemini returned quiz data that failed validation."
+            ) from exc
 
     def submit_quiz(
         self,

@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  ClipboardCheck,
   LayoutDashboard,
   MessageCircle,
   TrendingUp,
@@ -12,6 +13,7 @@ import { SidebarItem } from "@/components/layout/SidebarItem";
 const sidebarItems = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { label: "Learning Plan", to: "/learning-plan", icon: BookOpen },
+  { label: "Quiz", to: "/quiz", icon: ClipboardCheck },
   { label: "Progress", to: "/progress", icon: TrendingUp },
   {
     label: "Feedback and Nudges",
